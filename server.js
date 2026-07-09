@@ -1,0 +1,522 @@
+const express = require('express');
+const { Pool } = require('pg');
+const path = require('path');
+const cors = require('cors');
+
+const app = express();
+app.use(express.json({ limit: '10mb' }));
+app.use(cors());
+
+const COMPANY = "W-SAFE REINSURANCE";
+const PORT = process.env.PORT || 5000;
+const DATABASE_URL = process.env.DATABASE_URL;
+const IDLE_MIN = 10;
+const OFFLINE_MIN = 30;
+
+// -- DB --------------------------------------------------------
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+async function query(sql, params = []) {
+  const client = await pool.connect();
+  try {
+    const res = await client.query(sql, params);
+    return res.rows;
+  } finally {
+    client.release();
+  }
+}
+
+async function initDB() {
+  const tables = `
+    CREATE TABLE IF NOT EXISTS raw_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      event TEXT NOT NULL, username TEXT NOT NULL, computer TEXT NOT NULL,
+      serial TEXT DEFAULT 'N/A', ip TEXT DEFAULT 'N/A',
+      city TEXT DEFAULT 'N/A', region TEXT DEFAULT 'N/A',
+      country TEXT DEFAULT 'IN', lat TEXT DEFAULT 'N/A',
+      lon TEXT DEFAULT 'N/A', received_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS app_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL, username TEXT NOT NULL, computer TEXT NOT NULL,
+      app TEXT NOT NULL, window_title TEXT DEFAULT '',
+      duration_sec INTEGER DEFAULT 0, state TEXT DEFAULT 'active',
+      received_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS vpn_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      vpn_on INTEGER DEFAULT 0, software TEXT DEFAULT '',
+      adapter TEXT DEFAULT '', received_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS usb_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      drive TEXT DEFAULT '', label TEXT DEFAULT '',
+      size_gb REAL DEFAULT 0, action TEXT DEFAULT 'connected',
+      received_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS disk_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      drive TEXT DEFAULT 'C:', total_gb REAL DEFAULT 0,
+      used_gb REAL DEFAULT 0, free_gb REAL DEFAULT 0,
+      pct_used REAL DEFAULT 0, received_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS browser_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      domain TEXT NOT NULL, secs INTEGER DEFAULT 0, received_at TEXT NOT NULL
+    );
+  `;
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_raw_date ON raw_log(date, username)",
+    "CREATE INDEX IF NOT EXISTS idx_raw_user ON raw_log(username, computer)",
+    "CREATE INDEX IF NOT EXISTS idx_app_date ON app_log(date, username)",
+    "CREATE INDEX IF NOT EXISTS idx_app_user ON app_log(username, computer)",
+    "CREATE INDEX IF NOT EXISTS idx_browser_user ON browser_log(username, computer, date)",
+    "CREATE INDEX IF NOT EXISTS idx_vpn_user ON vpn_log(username, computer, date)",
+  ];
+  const client = await pool.connect();
+  try {
+    for (const stmt of tables.split(';').map(s => s.trim()).filter(Boolean)) {
+      await client.query(stmt);
+    }
+    for (const idx of indexes) {
+      await client.query(idx);
+    }
+    await client.query('COMMIT');
+    console.log('[DB] PostgreSQL ready');
+  } finally {
+    client.release();
+  }
+}
+
+// -- HELPERS ---------------------------------------------------
+function nowIST() {
+  const now = new Date();
+  return new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+}
+function todayIST() { return nowIST().toISOString().slice(0, 10); }
+function timeIST() { return nowIST().toISOString().slice(11, 19); }
+function fmtSecs(s) {
+  if (!s || s <= 0) return '0h 00m 00s';
+  s = Math.floor(s);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`;
+}
+function fmtDec(s) {
+  if (!s || s <= 0) return '0.00';
+  return (s / 3600).toFixed(2);
+}
+function parseDuration(d) {
+  if (!d) return 0;
+  if (typeof d === 'number') return d;
+  const m = String(d).match(/^(\d+):(\d+):(\d+)/);
+  return m ? parseInt(m[1])*3600 + parseInt(m[2])*60 + parseInt(m[3]) : parseInt(d) || 0;
+}
+
+// -- API ROUTES ------------------------------------------------
+app.post('/api/event', async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d || !d.username || !d.event) return res.json({ status: 'error', msg: 'missing fields' });
+    const now = timeIST();
+    const today = todayIST();
+    const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
+    await query(`INSERT INTO raw_log (date,time,event,username,computer,serial,ip,city,region,country,lat,lon,received_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [d.date||today, d.time||now, d.event, d.username, d.computer||'N/A',
+       d.serial||'N/A', d.ip||'N/A', d.city||'N/A', d.region||'N/A',
+       d.country||'IN', d.lat||'N/A', d.lon||'N/A', receivedAt]);
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ status: 'error', msg: e.message }); }
+});
+
+app.post('/api/app_event', async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d || !d.username) return res.json({ status: 'error', msg: 'missing fields' });
+    const now = timeIST();
+    const today = todayIST();
+    const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
+    const durS = parseDuration(d.duration || d.duration_sec || 0);
+    await query(`INSERT INTO app_log (date,start_time,end_time,username,computer,app,window_title,duration_sec,state,received_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [d.date||today, d.start_time||d.time||now, d.end_time||now,
+       d.username, d.computer||'N/A', d.app||'unknown',
+       d.window_title||'', durS, d.state||'active', receivedAt]);
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ status: 'error', msg: e.message }); }
+});
+
+app.post('/api/batch_event', async (req, res) => {
+  try {
+    const d = req.body;
+    const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
+    const today = todayIST(); const now = timeIST();
+    for (const ev of (d.events || [])) {
+      await query(`INSERT INTO raw_log (date,time,event,username,computer,serial,ip,city,region,country,lat,lon,received_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [ev.date||today, ev.time||now, ev.event, ev.username||d.username, ev.computer||d.computer||'N/A',
+         ev.serial||'N/A', ev.ip||'N/A', ev.city||'N/A', ev.region||'N/A',
+         ev.country||'IN', ev.lat||'N/A', ev.lon||'N/A', receivedAt]);
+    }
+    for (const ae of (d.app_events || [])) {
+      const durS = parseDuration(ae.duration || ae.duration_sec || 0);
+      await query(`INSERT INTO app_log (date,start_time,end_time,username,computer,app,window_title,duration_sec,state,received_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [ae.date||today, ae.start_time||ae.time||now, ae.end_time||now,
+         ae.username||d.username, ae.computer||d.computer||'N/A',
+         ae.app||'unknown', ae.window_title||'', durS, ae.state||'active', receivedAt]);
+    }
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ status: 'error', msg: e.message }); }
+});
+
+app.post('/api/heartbeat', async (req, res) => {
+  try {
+    const d = req.body;
+    if (!d || !d.username) return res.json({ status: 'error', msg: 'missing username' });
+    const now = timeIST(); const today = todayIST();
+    const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
+    await query(`INSERT INTO raw_log (date,time,event,username,computer,serial,ip,city,region,country,lat,lon,received_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [today, now, 'HEARTBEAT', d.username, d.computer||'N/A',
+       d.serial||'N/A', d.ip||'N/A', d.city||'N/A', d.region||'N/A',
+       d.country||'IN', 'N/A', 'N/A', receivedAt]);
+    if (d.vpn) {
+      const v = d.vpn;
+      await query(`INSERT INTO vpn_log (date,time,username,computer,vpn_on,software,adapter,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [today, now, d.username, d.computer||'N/A',
+         v.connected ? 1 : 0, (v.software||[]).join(', '), v.adapter||'', receivedAt]);
+    }
+    if (d.browser_sites) {
+      for (const site of d.browser_sites) {
+        if (!site.domain) continue;
+        const existing = await query(`SELECT id, secs FROM browser_log WHERE date=$1 AND username=$2 AND computer=$3 AND domain=$4`,
+          [today, d.username, d.computer||'N/A', site.domain]);
+        if (existing.length > 0) {
+          if ((site.secs||0) > existing[0].secs) {
+            await query(`UPDATE browser_log SET secs=$1, time=$2, received_at=$3 WHERE id=$4`,
+              [site.secs||0, now, receivedAt, existing[0].id]);
+          }
+        } else {
+          await query(`INSERT INTO browser_log (date,time,username,computer,domain,secs,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [today, now, d.username, d.computer||'N/A', site.domain, site.secs||0, receivedAt]);
+        }
+      }
+    }
+    const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
+      [d.username, d.computer||'N/A', today]);
+    res.json({ status: 'ok', known: known.length > 0 });
+  } catch(e) { res.status(500).json({ status: 'error', msg: e.message }); }
+});
+
+app.get('/api/status', (req, res) => res.json({ status: 'ok', server: COMPANY, version: '9.0' }));
+
+app.get('/api/summary', async (req, res) => {
+  try {
+    const data = await getAllEmployeesToday();
+    res.json({ generated: nowIST().toISOString(), ...data });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/clear_all', async (req, res) => {
+  try {
+    await query('DELETE FROM raw_log');
+    await query('DELETE FROM app_log');
+    await query('DELETE FROM browser_log');
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// -- DATA BUILDERS ---------------------------------------------
+const SOCIAL_DOMAINS = new Set([
+  'instagram.com','facebook.com','twitter.com','x.com','tiktok.com',
+  'snapchat.com','youtube.com','reddit.com','netflix.com','hotstar.com',
+  'spotify.com','discord.com','telegram.org','whatsapp.com','threads.net',
+  'linkedin.com','pinterest.com','tumblr.com'
+]);
+const SOCIAL_KW = ['instagram','facebook','whatsapp','youtube','tiktok',
+  'snapchat','twitter','reddit','netflix','spotify','discord','telegram'];
+
+async function getAllEmployeesToday() {
+  const today = todayIST();
+  const emps = await query(`SELECT DISTINCT username, computer FROM raw_log ORDER BY username`);
+  const rows = [];
+  let online = 0, idle = 0, offline = 0, totalActive = 0;
+
+  for (const emp of emps) {
+    const { username, computer } = emp;
+    const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
+    const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3`, [username, computer, today]);
+    const browserRows = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 10`, [username, computer, today]);
+    const vpnRow = await query(`SELECT * FROM vpn_log WHERE username=$1 AND computer=$2 ORDER BY date DESC, time DESC LIMIT 1`, [username, computer]);
+
+    let firstLogin = '--', lastEvent = '--', lastShutdown = '--';
+    let lastEventDt = null, serial = 'N/A', location = 'N/A', ip = 'N/A';
+
+    for (const r of todayRaw) {
+      const ev = r.event.toUpperCase();
+      if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && firstLogin === '--') firstLogin = r.time;
+      lastEvent = r.time;
+      if (ev.includes('LOGOUT')) lastShutdown = r.time;
+      if (r.serial && r.serial !== 'N/A') serial = r.serial;
+      if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
+      if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
+      try { lastEventDt = new Date(`${today}T${r.time}`); } catch {}
+    }
+
+    let status = 'Offline';
+    if (lastEventDt) {
+      const minsAgo = (nowIST() - lastEventDt) / 60000;
+      const lastEv = todayRaw.length ? todayRaw[todayRaw.length-1].event.toUpperCase() : '';
+      if (['LOGOUT(SHUTDOWN)','LOGOUT(LOGOFF)','LOGOUT(LOCK)','LOGOUT(SCREEN-OFF)'].includes(lastEv)) {
+        status = 'Offline';
+      } else if (lastEv === 'LOGOUT(IDLE)') {
+        status = 'Idle';
+      } else if (minsAgo > OFFLINE_MIN) {
+        status = 'Offline';
+      } else if (minsAgo > IDLE_MIN) {
+        status = 'Idle';
+      } else {
+        status = 'Online';
+      }
+    }
+
+    if (status === 'Online') online++;
+    else if (status === 'Idle') idle++;
+    else offline++;
+
+    let activeS = 0, idleS = 0;
+    const appCtr = {};
+    for (const ar of appRows) {
+      const dur = ar.duration_sec || 0;
+      const st = (ar.state || 'active').toLowerCase();
+      if (st === 'active') { activeS += dur; appCtr[ar.app] = (appCtr[ar.app]||0) + dur; }
+      else idleS += dur;
+    }
+    totalActive += activeS;
+    const top5 = Object.entries(appCtr).sort((a,b) => b[1]-a[1]).slice(0,5)
+      .map(([app, dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur) }));
+
+    const topSites = browserRows.map(r => ({ domain: r.domain, secs: r.secs }));
+    const socialSites = topSites.filter(s => [...SOCIAL_DOMAINS].some(sd => s.domain.includes(sd)));
+    // Also check window titles
+    if (!socialSites.length) {
+      for (const ar of appRows) {
+        const tl = (ar.window_title || '').toLowerCase();
+        if (SOCIAL_KW.some(k => tl.includes(k))) { socialSites.push({ domain: 'detected-via-title' }); break; }
+      }
+    }
+
+    const vpn = vpnRow[0];
+    rows.push({
+      username, computer, serial, status, firstLogin,
+      lastShutdown, lastEvent, location, ip,
+      activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
+      activeSecs: activeS,
+      top5, topSites, socialSites,
+      vpnOn: vpn ? !!vpn.vpn_on : false,
+      vpnSoftware: vpn ? vpn.software : '',
+    });
+  }
+
+  rows.sort((a,b) => {
+    const order = { Online:0, Idle:1, Offline:2 };
+    return (order[a.status]||3) - (order[b.status]||3) || a.username.localeCompare(b.username);
+  });
+  return { employees: rows, online, idle, offline, total: rows.length, totalActive: fmtSecs(totalActive) };
+}
+
+function friendlyName(app) {
+  if (!app) return 'Unknown';
+  const map = { 'chrome':'Chrome','msedge':'Edge','firefox':'Firefox',
+    'excel':'Excel','winword':'Word','powerpnt':'PowerPoint',
+    'outlook':'Outlook','teams':'Teams','zoom':'Zoom',
+    'sap':'SAP','code':'VS Code','notepad':'Notepad' };
+  const low = app.toLowerCase().replace('.exe','');
+  for (const [k,v] of Object.entries(map)) if (low.includes(k)) return v;
+  return app.replace('.exe','').split(/[\s_-]/).map(w => w[0]?.toUpperCase()+w.slice(1)).join(' ');
+}
+
+async function getEmployeeDetail(username, computer) {
+  const today = todayIST();
+  const thisMonth = today.slice(0, 7);
+
+  const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
+  const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY start_time`, [username, computer, today]);
+  const browserSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
+  const monthRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date LIKE $3 ORDER BY date,time`, [username, computer, `${thisMonth}%`]);
+  const monthApp = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date LIKE $3`, [username, computer, `${thisMonth}%`]);
+
+  let firstLogin = '--', lastShutdown = '--', serial = 'N/A', location = 'N/A', ip = 'N/A';
+  for (const r of todayRaw) {
+    const ev = r.event.toUpperCase();
+    if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && firstLogin === '--') firstLogin = r.time;
+    if (ev.includes('LOGOUT') && ev.includes('SHUTDOWN')) lastShutdown = r.time;
+    if (r.serial && r.serial !== 'N/A') serial = r.serial;
+    if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
+    if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
+  }
+
+  let activeS = 0, idleS = 0;
+  const appCtr = {}, socialCtr = {};
+  for (const ar of appRows) {
+    const dur = ar.duration_sec || 0;
+    const st = (ar.state || 'active').toLowerCase();
+    const tl = (ar.window_title || '').toLowerCase();
+    if (st === 'active') {
+      activeS += dur;
+      appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
+      for (const kw of SOCIAL_KW) {
+        if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
+          socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
+        }
+      }
+    } else idleS += dur;
+  }
+
+  const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
+    .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
+  const socialAlerts = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v) }));
+
+  // Monthly stats
+  let monthActiveS = 0;
+  const daysWorked = new Set();
+  for (const ar of monthApp) {
+    if ((ar.state||'active').toLowerCase() === 'active') {
+      monthActiveS += ar.duration_sec || 0;
+      daysWorked.add(ar.date);
+    }
+  }
+
+  // Calendar (last 30 days)
+  const cal = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(nowIST()); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    const dayAppRows = monthApp.filter(r => r.date === ds);
+    let dayActive = 0, dayIdle = 0;
+    for (const ar of dayAppRows) {
+      if ((ar.state||'active').toLowerCase() === 'active') dayActive += ar.duration_sec||0;
+      else dayIdle += ar.duration_sec||0;
+    }
+    const dayRaw = monthRaw.filter(r => r.date === ds);
+    const login = dayRaw.find(r => r.event.toUpperCase().includes('LOGIN') && !r.event.toUpperCase().includes('LOGOUT'));
+    const logout = dayRaw.filter(r => r.event.toUpperCase().includes('LOGOUT') && r.event.toUpperCase().includes('SHUTDOWN')).pop();
+    cal.push({
+      date: ds,
+      day: d.toLocaleDateString('en-IN', { weekday:'short', day:'2-digit' }),
+      active: fmtSecs(dayActive),
+      idle: fmtSecs(dayIdle),
+      dec: fmtDec(dayActive),
+      login: login ? login.time.slice(0,5) : '--',
+      logout: logout ? logout.time.slice(0,5) : '--',
+      worked: dayActive > 0,
+    });
+  }
+
+  return {
+    username, computer, serial, location, ip,
+    firstLogin, lastShutdown,
+    activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
+    topApps, socialAlerts, browserSites,
+    daysWorked: daysWorked.size,
+    monthActive: fmtSecs(monthActiveS),
+    monthActiveDec: fmtDec(monthActiveS),
+    cal,
+    appTimeline: appRows.map(ar => ({
+      time: ar.start_time, app: friendlyName(ar.app),
+      dur: ar.duration_sec||0, state: ar.state||'active',
+      title: ar.window_title||''
+    })),
+  };
+}
+
+// -- API DATA ENDPOINTS ----------------------------------------
+app.get('/api/dashboard', async (req, res) => {
+  try { res.json(await getAllEmployeesToday()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/employee/:username/:computer', async (req, res) => {
+  try { res.json(await getEmployeeDetail(req.params.username, req.params.computer)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/daily', async (req, res) => {
+  try {
+    const today = todayIST();
+    const emps = await query(`SELECT DISTINCT username, computer FROM raw_log WHERE date=$1 ORDER BY username`, [today]);
+    const result = [];
+    for (const { username, computer } of emps) {
+      const events = await query(`SELECT time, event FROM raw_log WHERE date=$1 AND username=$2 AND computer=$3 ORDER BY time`, [today, username, computer]);
+      const appRows = await query(`SELECT start_time, duration_sec, state, app FROM app_log WHERE date=$1 AND username=$2 AND computer=$3 ORDER BY start_time`, [today, username, computer]);
+      let loginT = null, logoutT = null;
+      const locks = [], unlocks = [];
+      for (const ev of events) {
+        const eu = ev.event.toUpperCase();
+        if (eu.includes('LOGIN') && !eu.includes('LOGOUT') && !loginT) loginT = ev.time.slice(0,5);
+        if (eu.includes('LOGOUT') && (eu.includes('SHUTDOWN') || eu.includes('LOGOFF'))) logoutT = ev.time.slice(0,5);
+        if (eu === 'LOCK') locks.push(ev.time.slice(0,5));
+        if (eu === 'UNLOCK') unlocks.push(ev.time.slice(0,5));
+      }
+      const pct = t => { if (!t) return null; const [h,m] = t.split(':').map(Number); return +((h*60+m)/1440*100).toFixed(3); };
+      let totalActive = 0, totalIdle = 0;
+      const segments = appRows.map(ar => {
+        const dur = ar.duration_sec||0;
+        const st = (ar.state||'active').toLowerCase();
+        const left = pct(ar.start_time);
+        if (left === null) return null;
+        const width = Math.min(+(dur/86400*100).toFixed(3), 100-left);
+        if (width < 0.01) return null;
+        if (st === 'active') totalActive += dur; else totalIdle += dur;
+        return { left, width, cls: st === 'active' ? 'active' : 'idle', app: friendlyName(ar.app) };
+      }).filter(Boolean);
+
+      result.push({
+        username, computer, loginT, logoutT,
+        loginPct: pct(loginT), logoutPct: pct(logoutT),
+        locks: locks.map(t => ({ t, pct: pct(t) })),
+        unlocks: unlocks.map(t => ({ t, pct: pct(t) })),
+        segments, totalActive: fmtSecs(totalActive), totalIdle: fmtSecs(totalIdle),
+        totalSession: fmtSecs(loginT && logoutT ? Math.round((pct(logoutT)-pct(loginT))/100*86400) : totalActive+totalIdle),
+      });
+    }
+    res.json({ today, employees: result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/alerts', async (req, res) => {
+  try {
+    const today = todayIST();
+    const emps = await query(`SELECT DISTINCT username, computer FROM raw_log WHERE date=$1 ORDER BY username`, [today]);
+    const alerts = [], clean = [];
+    for (const { username, computer } of emps) {
+      const sites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain`, [username, computer, today]);
+      const social = sites.filter(s => [...SOCIAL_DOMAINS].some(sd => s.domain.includes(sd)));
+      if (social.length) alerts.push({ username, computer, sites: social.map(s => ({ domain: s.domain, dur: fmtSecs(s.secs||1), secs: s.secs||1 })) });
+      else clean.push(username);
+    }
+    res.json({ today, alerts, clean });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// -- SERVE REACT -----------------------------------------------
+const clientBuild = path.join(__dirname, 'client', 'dist');
+app.use(express.static(clientBuild));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuild, 'index.html'));
+});
+
+// -- START -----------------------------------------------------
+initDB().then(() => {
+  app.listen(PORT, () => console.log(`[Server] EmpMon V9 running on port ${PORT}`));
+}).catch(e => { console.error('[DB] Init failed:', e.message); process.exit(1); });
