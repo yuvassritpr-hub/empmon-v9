@@ -88,7 +88,7 @@ export default function DailyTimeline() {
               {/* Name label */}
               <div style={{width:0,flexShrink:0}}/>
               {/* Bar */}
-              <div style={{flex:1,position:'relative',height:32,background:'#0d1117',borderRadius:6,overflow:'hidden'}}>
+              <div style={{flex:1,position:'relative',height:32,background:'#eaeef2',borderRadius:6,overflow:'hidden'}}>
                 {/* Session span */}
                 {e.loginPct != null && e.logoutPct != null && (
                   <div style={{

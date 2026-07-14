@@ -14,7 +14,7 @@ function Sidebar() {
   return (
     <aside style={{
       width: 220, minHeight: '100vh', background: 'var(--sidebar)',
-      borderRight: '1px solid var(--border)', padding: '20px 0',
+      borderRight: '1px solid var(--border)', padding: '20px 0', boxShadow: '2px 0 8px rgba(0,0,0,0.06)',
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       position: 'fixed', top: 0, left: 0, zIndex: 100,
     }}>
