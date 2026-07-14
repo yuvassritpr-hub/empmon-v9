@@ -517,6 +517,11 @@ app.get('*', (req, res) => {
 });
 
 // -- START -----------------------------------------------------
+if (!DATABASE_URL) {
+  console.error('[DB] Init failed: DATABASE_URL environment variable is not set!');
+  process.exit(1);
+}
+
 initDB().then(() => {
   app.listen(PORT, () => console.log(`[Server] EmpMon V9 running on port ${PORT}`));
-}).catch(e => { console.error('[DB] Init failed:', e.message); process.exit(1); });
+}).catch(e => { console.error('[DB] Init failed:', e.message || String(e)); process.exit(1); });
