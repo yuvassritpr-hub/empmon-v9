@@ -410,6 +410,7 @@ async function getEmployeeDetail(username, computer) {
 
   let activeS = 0, idleS = 0;
   const appCtr = {}, socialCtr = {};
+  const workCtr = {}, commsCtr = {}, nonworkCtr = {};
   for (const ar of appRows) {
     const dur = ar.duration_sec || 0;
     const st = (ar.state || 'active').toLowerCase();
@@ -417,6 +418,10 @@ async function getEmployeeDetail(username, computer) {
     if (st === 'active') {
       activeS += dur;
       appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
+      const cls = classify(ar.app, ar.window_title);
+      if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
+      else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
+      else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
       for (const kw of SOCIAL_KW) {
         if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
           socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
@@ -428,6 +433,14 @@ async function getEmployeeDetail(username, computer) {
   const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
     .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
   const socialAlerts = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v) }));
+
+  const totalActiveS = activeS || 1;
+  const workApps = Object.entries(workCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
+  const commsApps = Object.entries(commsCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
+  const nonworkApps = Object.entries(nonworkCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
 
   // Monthly stats
   let monthActiveS = 0;
@@ -469,7 +482,7 @@ async function getEmployeeDetail(username, computer) {
     username, computer, serial, location, ip,
     firstLogin, lastShutdown,
     activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
-    topApps, socialAlerts, browserSites,
+    topApps, workApps, commsApps, nonworkApps, socialAlerts, browserSites,
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),

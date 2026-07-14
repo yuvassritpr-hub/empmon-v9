@@ -97,20 +97,73 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
-      {/* Social Media Alerts */}
-      {data.socialAlerts?.length > 0 && (
-        <div style={{background:'#f8514910',border:'1px solid #f8514933',borderRadius:12,padding:20,marginBottom:20}}>
-          <div style={{fontWeight:600,color:'#f87171',marginBottom:12}}>⚠ Social Media Detected</div>
-          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-            {data.socialAlerts.map((s,i)=>(
-              <span key={i} style={{background:'#f8514922',color:'#f87171',border:'1px solid #f8514944',
-                borderRadius:8,padding:'4px 12px',fontSize:12}}>
-                {s.site} · {s.dur}
-              </span>
-            ))}
+      {/* Work / Comms / Non-work Details (ActivityWatch style) */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:20}}>
+        {/* Work Details */}
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+            <span style={{width:10,height:10,borderRadius:2,background:'var(--green)',display:'inline-block'}}/>
+            <span style={{fontWeight:700,color:'var(--green)'}}>Work Details</span>
           </div>
+          {(data.workApps||[]).length > 0 ? (data.workApps||[]).map((a,i)=>(
+            <div key={i} style={{marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                <span style={{fontWeight:600}}>{a.app}</span>
+                <span style={{color:'var(--text-dim)'}}>{a.dur} · {a.pct}%</span>
+              </div>
+              <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${a.pct}%`,background:'var(--green)',borderRadius:3}}/>
+              </div>
+            </div>
+          )) : <div style={{color:'var(--text-dim)',fontSize:12}}>No work app data</div>}
         </div>
-      )}
+
+        {/* Comms Details */}
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+            <span style={{width:10,height:10,borderRadius:2,background:'var(--accent)',display:'inline-block'}}/>
+            <span style={{fontWeight:700,color:'var(--accent)'}}>Comms Details</span>
+          </div>
+          {(data.commsApps||[]).length > 0 ? (data.commsApps||[]).map((a,i)=>(
+            <div key={i} style={{marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                <span style={{fontWeight:600}}>{a.app}</span>
+                <span style={{color:'var(--text-dim)'}}>{a.dur} · {a.pct}%</span>
+              </div>
+              <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${a.pct}%`,background:'var(--accent)',borderRadius:3}}/>
+              </div>
+            </div>
+          )) : <div style={{color:'var(--text-dim)',fontSize:12}}>No comms app data</div>}
+        </div>
+
+        {/* Non-Work / Social */}
+        <div style={{background:'var(--card)',border:'1px solid #f8514933',borderRadius:12,padding:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+            <span style={{width:10,height:10,borderRadius:2,background:'var(--red)',display:'inline-block'}}/>
+            <span style={{fontWeight:700,color:'var(--red)'}}>Non-Work / Social</span>
+          </div>
+          {(data.nonworkApps||[]).length > 0 ? (data.nonworkApps||[]).map((a,i)=>(
+            <div key={i} style={{marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                <span style={{fontWeight:600}}>{a.app}</span>
+                <span style={{color:'var(--text-dim)'}}>{a.dur} · {a.pct}%</span>
+              </div>
+              <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${a.pct}%`,background:'var(--red)',borderRadius:3}}/>
+              </div>
+            </div>
+          )) : <div style={{color:'var(--text-dim)',fontSize:12,color:'var(--green)'}}>✓ No non-work apps</div>}
+          {data.socialAlerts?.length > 0 && (
+            <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid #f8514933'}}>
+              <div style={{fontSize:11,color:'var(--red)',fontWeight:600,marginBottom:6}}>⚠ Social Sites</div>
+              {data.socialAlerts.map((s,i)=>(
+                <div key={i} style={{fontSize:11,color:'#f87171',marginBottom:2}}>{s.site} · {s.dur}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Calendar */}
       <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
