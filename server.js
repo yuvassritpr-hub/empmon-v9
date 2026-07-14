@@ -294,15 +294,30 @@ async function getAllEmployeesToday() {
     else if (status === 'Idle') idle++;
     else offline++;
 
-    let activeS = 0, idleS = 0;
+    let activeS = 0, idleS = 0, workS = 0, commsS = 0, nonworkS = 0;
     const appCtr = {};
+    let lockCount = 0, unlockCount = 0, firstLock = '--', lastUnlock = '--';
+    for (const r of todayRaw) {
+      const ev = r.event.toUpperCase();
+      if (ev === 'LOCK') { lockCount++; if (firstLock === '--') firstLock = r.time.slice(0,5); }
+      if (ev === 'UNLOCK') { unlockCount++; lastUnlock = r.time.slice(0,5); }
+    }
     for (const ar of appRows) {
       const dur = ar.duration_sec || 0;
       const st = (ar.state || 'active').toLowerCase();
-      if (st === 'active') { activeS += dur; appCtr[ar.app] = (appCtr[ar.app]||0) + dur; }
-      else idleS += dur;
+      if (st === 'active') {
+        activeS += dur;
+        appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
+        const cat = classify(ar.app, ar.window_title);
+        if (cat === 'work') workS += dur;
+        else if (cat === 'comms') commsS += dur;
+        else nonworkS += dur;
+      } else idleS += dur;
     }
     totalActive += activeS;
+    const workPct  = activeS ? Math.round(workS/activeS*100) : 0;
+    const commsPct = activeS ? Math.round(commsS/activeS*100) : 0;
+    const nonworkPct = activeS ? Math.round(nonworkS/activeS*100) : 0;
     const top5 = Object.entries(appCtr).sort((a,b) => b[1]-a[1]).slice(0,5)
       .map(([app, dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur) }));
 
@@ -325,6 +340,10 @@ async function getAllEmployeesToday() {
       top5, topSites, socialSites,
       vpnOn: vpn ? !!vpn.vpn_on : false,
       vpnSoftware: vpn ? vpn.software : '',
+      workSecs: workS, commsSecs: commsS, nonworkSecs: nonworkS,
+      workPct, commsPct, nonworkPct,
+      workTime: fmtSecs(workS), commsTime: fmtSecs(commsS), nonworkTime: fmtSecs(nonworkS),
+      lockCount, unlockCount, firstLock, lastUnlock,
     });
   }
 
@@ -337,13 +356,36 @@ async function getAllEmployeesToday() {
 
 function friendlyName(app) {
   if (!app) return 'Unknown';
-  const map = { 'chrome':'Chrome','msedge':'Edge','firefox':'Firefox',
-    'excel':'Excel','winword':'Word','powerpnt':'PowerPoint',
-    'outlook':'Outlook','teams':'Teams','zoom':'Zoom',
-    'sap':'SAP','code':'VS Code','notepad':'Notepad' };
+  const map = {
+    'chrome':'Chrome','msedge':'Edge','firefox':'Firefox','opera':'Opera','brave':'Brave',
+    'excel':'Excel','winword':'Word','powerpnt':'PowerPoint','onenote':'OneNote','access':'Access',
+    'outlook':'Outlook','teams':'Teams','zoom':'Zoom','skype':'Skype','webex':'Webex',
+    'sap':'SAP','code':'VS Code','notepad':'Notepad','explorer':'File Explorer',
+    'acrobat':'Acrobat','photoshop':'Photoshop','vlc':'VLC','slack':'Slack',
+  };
   const low = app.toLowerCase().replace('.exe','');
   for (const [k,v] of Object.entries(map)) if (low.includes(k)) return v;
   return app.replace('.exe','').split(/[\s_-]/).map(w => w[0]?.toUpperCase()+w.slice(1)).join(' ');
+}
+
+const WORK_KEYS = ['sap','excel','winword','powerpnt','outlook','onenote','acrobat','notepad',
+  'code','teams','zoom','webex','skype','slack','explorer','access'];
+const COMMS_KEYS = ['teams','outlook','zoom','skype','webex','slack','thunderbird','telegram','discord'];
+const SOCIAL_KW_LIST = ['instagram','facebook','whatsapp','youtube','tiktok',
+  'snapchat','twitter','reddit','netflix','spotify','discord','telegram','hotstar'];
+
+function classify(app, title) {
+  const al = (app||'').toLowerCase();
+  const tl = (title||'').toLowerCase();
+  for (const k of COMMS_KEYS) if (al.includes(k)) return 'comms';
+  const isBrowser = ['chrome','firefox','msedge','edge','opera','brave'].some(b => al.includes(b));
+  if (isBrowser) {
+    if (['gmail','google meet','teams','zoom','outlook','webex','skype'].some(k => tl.includes(k))) return 'comms';
+    if (SOCIAL_KW_LIST.some(k => tl.includes(k))) return 'nonwork';
+    return 'work';
+  }
+  for (const k of WORK_KEYS) if (al.includes(k)) return 'work';
+  return 'work';
 }
 
 async function getEmployeeDetail(username, computer) {

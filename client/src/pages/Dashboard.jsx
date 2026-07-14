@@ -187,9 +187,27 @@ export default function Dashboard() {
             </div>
 
             {/* Active / Idle */}
-            <div style={{ minWidth: 120 }}>
+            <div style={{ minWidth: 110 }}>
               <div style={{ fontSize: 12 }}>Active: <strong style={{ color:'var(--green)' }}>{e.activeToday}</strong></div>
               <div style={{ fontSize: 12, color:'var(--text-dim)' }}>Idle: {e.idleToday}</div>
+              <div style={{ fontSize: 11, color:'var(--text-dim)', marginTop:2 }}>
+                🔒 {e.lockCount||0}x &nbsp; 🔓 {e.unlockCount||0}x
+              </div>
+            </div>
+
+            {/* Work % bar */}
+            <div style={{ minWidth: 140 }}>
+              <div style={{ fontSize: 11, color:'var(--text-dim)', marginBottom:4 }}>Productivity</div>
+              <div style={{ display:'flex', height:8, borderRadius:4, overflow:'hidden', width:'100%', background:'var(--border)' }}>
+                <div style={{ width:`${e.workPct||0}%`, background:'var(--green)' }} title={`Work ${e.workPct}%`}/>
+                <div style={{ width:`${e.commsPct||0}%`, background:'var(--accent)' }} title={`Comms ${e.commsPct}%`}/>
+                <div style={{ width:`${e.nonworkPct||0}%`, background:'var(--red)' }} title={`Non-work ${e.nonworkPct}%`}/>
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:3, fontSize:10 }}>
+                <span style={{color:'var(--green)'}}>Work {e.workPct||0}%</span>
+                <span style={{color:'var(--accent)'}}>Comms {e.commsPct||0}%</span>
+                <span style={{color:'var(--red)'}}>Other {e.nonworkPct||0}%</span>
+              </div>
             </div>
 
             {/* Top Apps */}
@@ -206,9 +224,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Location */}
-            <div style={{ fontSize: 12, color:'var(--text-dim)', minWidth: 100 }}>
-              📍 {e.location}
+            {/* Location + Serial + IP */}
+            <div style={{ fontSize: 12, minWidth: 130 }}>
+              <div style={{ color:'var(--text-dim)' }}>📍 {e.location}</div>
+              <div style={{ color:'var(--text-dim)', fontSize:11 }}>🖥 {e.serial}</div>
+              <div style={{ color:'var(--text-dim)', fontSize:11 }}>🌐 {e.ip}</div>
             </div>
 
             {/* View button */}
