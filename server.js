@@ -410,6 +410,8 @@ async function getEmployeeDetail(username, computer) {
 
   let activeS = 0, idleS = 0;
   const appCtr = {}, socialCtr = {};
+  // workTitles[title] = { secs, app }, same for commsTitles, nonworkTitles
+  const workTitles = {}, commsTitles = {}, nonworkTitles = {};
   const workCtr = {}, commsCtr = {}, nonworkCtr = {};
   for (const ar of appRows) {
     const dur = ar.duration_sec || 0;
@@ -419,9 +421,17 @@ async function getEmployeeDetail(username, computer) {
       activeS += dur;
       appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
       const cls = classify(ar.app, ar.window_title);
-      if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
-      else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
-      else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
+      const titleKey = (ar.window_title || ar.app || '').trim();
+      if (cls === 'work') {
+        workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
+        if (titleKey) { workTitles[titleKey] = (workTitles[titleKey]||{secs:0,app:ar.app}); workTitles[titleKey].secs += dur; }
+      } else if (cls === 'comms') {
+        commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
+        if (titleKey) { commsTitles[titleKey] = (commsTitles[titleKey]||{secs:0,app:ar.app}); commsTitles[titleKey].secs += dur; }
+      } else {
+        nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
+        if (titleKey) { nonworkTitles[titleKey] = (nonworkTitles[titleKey]||{secs:0,app:ar.app}); nonworkTitles[titleKey].secs += dur; }
+      }
       for (const kw of SOCIAL_KW) {
         if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
           socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
@@ -435,12 +445,20 @@ async function getEmployeeDetail(username, computer) {
   const socialAlerts = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v) }));
 
   const totalActiveS = activeS || 1;
+  // App-level summary (for percentages on dashboard)
   const workApps = Object.entries(workCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
     .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
   const commsApps = Object.entries(commsCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
     .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
   const nonworkApps = Object.entries(nonworkCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
     .map(([app,s]) => ({ app: friendlyName(app), dur: fmtSecs(s), secs: s, pct: Math.round(s/totalActiveS*100) }));
+  // Window-title level (ActivityWatch-style document/email list)
+  const workTitleList = Object.entries(workTitles).sort((a,b)=>b[1].secs-a[1].secs).slice(0,15)
+    .map(([title,v]) => ({ title, app: friendlyName(v.app), dur: fmtSecs(v.secs), secs: v.secs, pct: Math.round(v.secs/totalActiveS*100) }));
+  const commsTitleList = Object.entries(commsTitles).sort((a,b)=>b[1].secs-a[1].secs).slice(0,15)
+    .map(([title,v]) => ({ title, app: friendlyName(v.app), dur: fmtSecs(v.secs), secs: v.secs, pct: Math.round(v.secs/totalActiveS*100) }));
+  const nonworkTitleList = Object.entries(nonworkTitles).sort((a,b)=>b[1].secs-a[1].secs).slice(0,10)
+    .map(([title,v]) => ({ title, app: friendlyName(v.app), dur: fmtSecs(v.secs), secs: v.secs, pct: Math.round(v.secs/totalActiveS*100) }));
 
   // Monthly stats
   let monthActiveS = 0;
@@ -482,7 +500,12 @@ async function getEmployeeDetail(username, computer) {
     username, computer, serial, location, ip,
     firstLogin, lastShutdown,
     activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
-    topApps, workApps, commsApps, nonworkApps, socialAlerts, browserSites,
+    workPct: totalActiveS > 1 ? Math.round(Object.values(workCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
+    commsPct: totalActiveS > 1 ? Math.round(Object.values(commsCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
+    nonworkPct: totalActiveS > 1 ? Math.round(Object.values(nonworkCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
+    topApps, workApps, commsApps, nonworkApps,
+    workTitleList, commsTitleList, nonworkTitleList,
+    socialAlerts, browserSites,
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),
