@@ -399,10 +399,20 @@ async function getEmployeeDetail(username, computer) {
   const monthApp = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date LIKE $3`, [username, computer, `${thisMonth}%`]);
 
   let firstLogin = '--', lastShutdown = '--', serial = 'N/A', location = 'N/A', ip = 'N/A';
+  const lockTimes = [], unlockTimes = [], loginTimes = [], shutdownTimes = [];
   for (const r of todayRaw) {
     const ev = r.event.toUpperCase();
-    if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && firstLogin === '--') firstLogin = r.time;
-    if (ev.includes('LOGOUT') && ev.includes('SHUTDOWN')) lastShutdown = r.time;
+    const t = (r.time||'').slice(0,5);
+    if (ev.includes('LOGIN') && !ev.includes('LOGOUT')) {
+      if (firstLogin === '--') firstLogin = r.time;
+      if (t) loginTimes.push(t);
+    }
+    if (ev.includes('LOGOUT') && ev.includes('SHUTDOWN')) {
+      lastShutdown = r.time;
+      if (t) shutdownTimes.push(t);
+    }
+    if (ev.includes('LOCK') && !ev.includes('UNLOCK') && t) lockTimes.push(t);
+    if (ev.includes('UNLOCK') && t) unlockTimes.push(t);
     if (r.serial && r.serial !== 'N/A') serial = r.serial;
     if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
     if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
@@ -498,7 +508,7 @@ async function getEmployeeDetail(username, computer) {
 
   return {
     username, computer, serial, location, ip,
-    firstLogin, lastShutdown,
+    firstLogin, lastShutdown, loginTimes, shutdownTimes, lockTimes, unlockTimes,
     activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
     workPct: totalActiveS > 1 ? Math.round(Object.values(workCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
     commsPct: totalActiveS > 1 ? Math.round(Object.values(commsCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,

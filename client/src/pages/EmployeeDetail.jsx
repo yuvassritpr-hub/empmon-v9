@@ -97,6 +97,31 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
+      {/* Login / Shutdown / Lock / Unlock times */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+        {[
+          { label:'Login Times',    times: data.loginTimes||[],    color:'var(--green)',  icon:'▶' },
+          { label:'Shutdown Times', times: data.shutdownTimes||[], color:'var(--red)',    icon:'⏹' },
+          { label:'Lock Times',     times: data.lockTimes||[],     color:'var(--yellow)', icon:'🔒' },
+          { label:'Unlock Times',   times: data.unlockTimes||[],   color:'var(--accent)', icon:'🔓' },
+        ].map(({label,times,color,icon})=>(
+          <div key={label} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:16}}>
+            <div style={{fontSize:12,fontWeight:700,color,marginBottom:10}}>{icon} {label}</div>
+            {times.length > 0
+              ? <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                  {times.map((t,i)=>(
+                    <span key={i} style={{fontSize:12,padding:'3px 8px',borderRadius:6,
+                      background:color+'18',color,border:`1px solid ${color}33`,fontWeight:600}}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              : <div style={{fontSize:12,color:'var(--text-dim)'}}>—</div>
+            }
+          </div>
+        ))}
+      </div>
+
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:20}}>
         {/* App Usage Chart */}
         <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
