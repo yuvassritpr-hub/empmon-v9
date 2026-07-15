@@ -266,11 +266,16 @@ async function getAllEmployeesToday() {
       const ev = r.event.toUpperCase();
       if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && firstLogin === '--') firstLogin = r.time;
       lastEvent = r.time;
-      if (ev.includes('LOGOUT')) lastShutdown = r.time;
+      if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) lastShutdown = r.time;
       if (r.serial && r.serial !== 'N/A') serial = r.serial;
       if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
       if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
       try { lastEventDt = new Date(`${today}T${r.time}`); } catch {}
+    }
+    // Fallback: infer login from first app event if no raw login event
+    if (firstLogin === '--' && appRows.length > 0) {
+      const sorted = [...appRows].sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||''));
+      if (sorted[0]?.start_time) firstLogin = sorted[0].start_time.slice(0,5);
     }
 
     let status = 'Offline';
@@ -416,6 +421,12 @@ async function getEmployeeDetail(username, computer) {
     if (r.serial && r.serial !== 'N/A') serial = r.serial;
     if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
     if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
+  }
+  // Fallback: infer login from first app event if raw login event missing
+  if (firstLogin === '--' && appRows.length > 0) {
+    const firstApp = appRows[0];
+    const t = (firstApp.start_time||'').slice(0,5);
+    if (t) { firstLogin = firstApp.start_time; loginTimes.push(t + ' (est)'); }
   }
 
   let activeS = 0, idleS = 0;
