@@ -174,6 +174,59 @@ export default function EmployeeDetail() {
         />
       </div>
 
+      {/* Gmail Accounts + Top Tabs + File Sharing */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:20}}>
+
+        {/* Gmail / Email Accounts */}
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>📧 Email Accounts Used</div>
+          {(data.gmailList||[]).length > 0 ? (data.gmailList||[]).map((g,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'6px 10px',
+              background:'#4493f818',borderRadius:8,border:'1px solid #4493f830'}}>
+              <span>📬</span>
+              <div style={{flex:1,overflow:'hidden'}}>
+                <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.email}</div>
+                <div style={{fontSize:11,color:'var(--text-dim)'}}>{g.dur}</div>
+              </div>
+              {i===0 && <span style={{fontSize:10,background:'var(--accent)',color:'#fff',borderRadius:4,padding:'1px 5px',flexShrink:0}}>Top</span>}
+            </div>
+          )) : <div style={{color:'var(--text-dim)',fontSize:12}}>No email accounts detected</div>}
+        </div>
+
+        {/* Most Used Browser Tabs */}
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>🌐 Most Used Browser Tabs</div>
+          {(data.topTabs||[]).length > 0 ? (data.topTabs||[]).map((t,i)=>(
+            <div key={i} style={{marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',gap:8,fontSize:12,marginBottom:2}}>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{t.title}</span>
+                <span style={{color:'var(--text-dim)',flexShrink:0,fontSize:11}}>{t.dur}</span>
+              </div>
+              <div style={{height:3,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${Math.round(t.secs/((data.topTabs[0]?.secs)||1)*100)}%`,background:'var(--accent)',borderRadius:2}}/>
+              </div>
+            </div>
+          )) : <div style={{color:'var(--text-dim)',fontSize:12}}>No browser tab data</div>}
+        </div>
+
+        {/* File Sharing Alerts */}
+        <div style={{background:'var(--card)',border:`1px solid ${(data.fileSharingSites||[]).length?'#fb850044':'var(--border)'}`,borderRadius:12,padding:20}}>
+          <div style={{fontWeight:700,fontSize:13,marginBottom:12,color:(data.fileSharingSites||[]).length?'var(--orange)':'var(--text)'}}>
+            📤 File Sharing Sites
+          </div>
+          {(data.fileSharingSites||[]).length > 0 ? (data.fileSharingSites||[]).map((s,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'6px 10px',
+              background:'#fb850018',borderRadius:8,border:'1px solid #fb850030'}}>
+              <span>📁</span>
+              <div>
+                <div style={{fontSize:12,fontWeight:600}}>{s.domain}</div>
+                <div style={{fontSize:11,color:'var(--text-dim)'}}>{s.dur}</div>
+              </div>
+            </div>
+          )) : <div style={{color:'var(--green)',fontSize:12}}>✓ No file sharing detected</div>}
+        </div>
+      </div>
+
       {/* Non-Work / Social */}
       {((data.nonworkTitleList||[]).length > 0 || (data.socialAlerts||[]).length > 0) && (
         <div style={{background:'var(--card)',border:'1px solid #f8514933',borderRadius:12,padding:20,marginBottom:20}}>

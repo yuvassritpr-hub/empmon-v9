@@ -164,6 +164,12 @@ export default function Dashboard() {
                     ⚠ SOCIAL
                   </Link>
                 )}
+                {e.fileSharingSites?.length > 0 && (
+                  <Link to={`/employee/${e.username}/${e.computer}`} style={{ marginLeft: 4, background:'var(--orange)', color:'#fff',
+                    fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px', textDecoration:'none' }}>
+                    📤 FILE SHARE
+                  </Link>
+                )}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{e.computer}</div>
             </div>

@@ -245,6 +245,12 @@ const SOCIAL_DOMAINS = new Set([
 ]);
 const SOCIAL_KW = ['instagram','facebook','whatsapp','youtube','tiktok',
   'snapchat','twitter','reddit','netflix','spotify','discord','telegram'];
+const FILE_SHARING_DOMAINS = new Set([
+  'drive.google.com','dropbox.com','wetransfer.com','onedrive.live.com',
+  'sharepoint.com','box.com','mega.nz','mediafire.com','4shared.com',
+  'files.google.com','docs.google.com','sheets.google.com','slides.google.com'
+]);
+const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]+/g;
 
 async function getAllEmployeesToday() {
   const today = todayIST();
@@ -328,6 +334,7 @@ async function getAllEmployeesToday() {
 
     const topSites = browserRows.map(r => ({ domain: r.domain, secs: r.secs }));
     const socialSites = topSites.filter(s => [...SOCIAL_DOMAINS].some(sd => s.domain.includes(sd)));
+    const fileSharingSites = topSites.filter(s => [...FILE_SHARING_DOMAINS].some(fd => s.domain.includes(fd)));
     // Also check window titles
     if (!socialSites.length) {
       for (const ar of appRows) {
@@ -342,7 +349,7 @@ async function getAllEmployeesToday() {
       lastShutdown, lastEvent, location, ip,
       activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
       activeSecs: activeS,
-      top5, topSites, socialSites,
+      top5, topSites, socialSites, fileSharingSites,
       vpnOn: vpn ? !!vpn.vpn_on : false,
       vpnSoftware: vpn ? vpn.software : '',
       workSecs: workS, commsSecs: commsS, nonworkSecs: nonworkS,
@@ -465,6 +472,42 @@ async function getEmployeeDetail(username, computer) {
     .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
   const socialAlerts = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v) }));
 
+  // Gmail accounts from window titles
+  const gmailAccounts = {};
+  for (const ar of appRows) {
+    const isBrowser = ['chrome','firefox','msedge','edge','opera','brave'].some(b=>(ar.app||'').toLowerCase().includes(b));
+    if (!isBrowser) continue;
+    const tl = ar.window_title || '';
+    const matches = tl.match(EMAIL_RE) || [];
+    for (const email of matches) {
+      if (email.includes('gmail') || email.includes('google') || tl.toLowerCase().includes('gmail')) {
+        gmailAccounts[email] = (gmailAccounts[email]||0) + (ar.duration_sec||0);
+      } else {
+        gmailAccounts[email] = (gmailAccounts[email]||0) + (ar.duration_sec||0);
+      }
+    }
+  }
+  const gmailList = Object.entries(gmailAccounts).sort((a,b)=>b[1]-a[1])
+    .map(([email,s]) => ({ email, dur: fmtSecs(s), secs: s }));
+
+  // File sharing sites from browser_log
+  const fileSharingSites = browserSites.filter(s =>
+    [...FILE_SHARING_DOMAINS].some(fd => (s.domain||'').includes(fd))
+  ).map(s => ({ domain: s.domain, dur: fmtSecs(s.secs||1), secs: s.secs||1 }));
+
+  // Most used browser tabs (top window titles from browser apps)
+  const tabCtr = {};
+  for (const ar of appRows) {
+    const isBrowser = ['chrome','firefox','msedge','edge','opera','brave'].some(b=>(ar.app||'').toLowerCase().includes(b));
+    if (!isBrowser || !ar.window_title) continue;
+    const title = (ar.window_title||'').replace(/ - Google Chrome| - Microsoft Edge| - Mozilla Firefox/i,'').trim();
+    if (title && title.toLowerCase() !== '(no title)') {
+      tabCtr[title] = (tabCtr[title]||0) + (ar.duration_sec||0);
+    }
+  }
+  const topTabs = Object.entries(tabCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
+    .map(([title,s]) => ({ title, dur: fmtSecs(s), secs: s }));
+
   const totalActiveS = activeS || 1;
   // App-level summary (for percentages on dashboard)
   const workApps = Object.entries(workCtr).sort((a,b)=>b[1]-a[1]).slice(0,8)
@@ -526,7 +569,7 @@ async function getEmployeeDetail(username, computer) {
     nonworkPct: totalActiveS > 1 ? Math.round(Object.values(nonworkCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
     topApps, workApps, commsApps, nonworkApps,
     workTitleList, commsTitleList, nonworkTitleList,
-    socialAlerts, browserSites,
+    socialAlerts, fileSharingSites, gmailList, topTabs, browserSites,
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),
