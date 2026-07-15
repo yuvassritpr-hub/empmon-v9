@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
-const STATUS_COLOR = { Online: '#3fb950', Idle: '#d29922', Offline: '#7d8590' }
+const STATUS_COLOR = { Online: '#3fb950', Idle: '#d29922', Offline: '#f85149' }
 const APP_COLORS = ['#4493f8','#a371f7','#3fb950','#fb8500','#f85149','#d29922','#58a6ff','#bc8cff']
 
 function StatCard({ label, value, color }) {
