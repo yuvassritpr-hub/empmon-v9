@@ -534,12 +534,18 @@ function friendlyName(app) {
 const WORK_KEYS = ['sap','excel','winword','powerpnt','outlook','onenote','acrobat','notepad',
   'code','teams','zoom','webex','skype','slack','explorer','access'];
 const COMMS_KEYS = ['teams','outlook','zoom','skype','webex','slack','thunderbird','telegram','discord'];
-const SOCIAL_KW_LIST = ['instagram','facebook','whatsapp','youtube','tiktok',
-  'snapchat','twitter','reddit','netflix','spotify','discord','telegram','hotstar'];
+// Social apps as standalone desktop apps (WhatsApp.exe, Instagram UWP, etc.)
+const SOCIAL_APP_KEYS = ['instagram','facebook','whatsapp','tiktok','snapchat','twitter',
+  'netflix','spotify','hotstar','reddit','youtube'];
+const SOCIAL_KW_LIST = [...SOCIAL_APP_KEYS, 'discord','telegram'];
 
 function classify(app, title) {
   const al = (app||'').toLowerCase();
   const tl = (title||'').toLowerCase();
+  // Check social app name first (WhatsApp.exe, Instagram.exe, etc.)
+  if (SOCIAL_APP_KEYS.some(k => al.includes(k))) return 'nonwork';
+  // Also check window title for social keywords (handles ApplicationFrameHost.exe / UWP)
+  if (SOCIAL_APP_KEYS.some(k => tl.includes(k))) return 'nonwork';
   for (const k of COMMS_KEYS) if (al.includes(k)) return 'comms';
   const isBrowser = ['chrome','firefox','msedge','edge','opera','brave'].some(b => al.includes(b));
   if (isBrowser) {
@@ -621,7 +627,18 @@ async function getEmployeeDetail(username, computer) {
 
   const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
     .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
-  const socialAlerts = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v) }));
+  // Social from window titles / app names
+  const socialFromTitles = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v), secs: v }));
+  // Social from browser history domains (catches WhatsApp Web, Instagram Web, etc.)
+  const socialFromBrowser = browserSites
+    .filter(s => [...SOCIAL_DOMAINS].some(sd => (s.domain||'').includes(sd)))
+    .map(s => ({ site: s.domain, dur: fmtSecs(s.secs||1), secs: s.secs||1 }));
+  // Merge both, deduplicate by site name
+  const socialMerged = {};
+  for (const x of [...socialFromTitles, ...socialFromBrowser]) {
+    if (!socialMerged[x.site] || x.secs > socialMerged[x.site].secs) socialMerged[x.site] = x;
+  }
+  const socialAlerts = Object.values(socialMerged).sort((a,b) => b.secs - a.secs);
 
   // Gmail accounts from window titles
   const gmailAccounts = {};
