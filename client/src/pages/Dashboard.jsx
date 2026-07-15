@@ -73,11 +73,32 @@ export default function Dashboard() {
             {' · '}Auto-refresh every 60s
           </div>
         </div>
-        <button onClick={load} style={{
-          background: 'var(--card)', border: '1px solid var(--border)',
-          color: 'var(--text)', borderRadius: 8, padding: '6px 14px',
-          cursor: 'pointer', fontSize: 13,
-        }}>⟳ Refresh</button>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <select id="reportMonth" defaultValue={new Date().toISOString().slice(0,7)}
+            style={{background:'var(--card)',border:'1px solid var(--border)',color:'var(--text)',
+              borderRadius:8,padding:'6px 10px',fontSize:12,cursor:'pointer'}}>
+            {Array.from({length:6},(_,i)=>{
+              const d=new Date(); d.setMonth(d.getMonth()-i);
+              const v=d.toISOString().slice(0,7);
+              return <option key={v} value={v}>{v}</option>
+            })}
+          </select>
+          <a href="#" onClick={e=>{e.preventDefault();const m=document.getElementById('reportMonth').value;window.open(`/api/report/excel?month=${m}`,'_blank')}}
+            style={{background:'#1e6e2e',border:'1px solid #2ea043',color:'#fff',borderRadius:8,
+              padding:'6px 14px',fontSize:12,fontWeight:600,textDecoration:'none',whiteSpace:'nowrap'}}>
+            📥 Excel
+          </a>
+          <a href="#" onClick={e=>{e.preventDefault();const m=document.getElementById('reportMonth').value;window.open(`/api/report/pdf?month=${m}`,'_blank')}}
+            style={{background:'#8b1a1a',border:'1px solid #c0392b',color:'#fff',borderRadius:8,
+              padding:'6px 14px',fontSize:12,fontWeight:600,textDecoration:'none',whiteSpace:'nowrap'}}>
+            📄 PDF
+          </a>
+          <button onClick={load} style={{
+            background: 'var(--card)', border: '1px solid var(--border)',
+            color: 'var(--text)', borderRadius: 8, padding: '6px 14px',
+            cursor: 'pointer', fontSize: 13,
+          }}>⟳ Refresh</button>
+        </div>
       </div>
 
       {/* Stats */}

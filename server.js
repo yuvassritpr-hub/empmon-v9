@@ -1,4 +1,5 @@
 const express = require('express');
+const XLSX = require('xlsx');
 const { Pool } = require('pg');
 const path = require('path');
 const cors = require('cors');
@@ -216,6 +217,156 @@ app.post('/api/heartbeat', async (req, res) => {
       [d.username, d.computer||'N/A', today]);
     res.json({ status: 'ok', known: known.length > 0 });
   } catch(e) { res.status(500).json({ status: 'error', msg: e.message }); }
+});
+
+// Monthly report data builder
+async function buildMonthlyReport(month) {
+  // month = 'YYYY-MM', default = current month
+  const m = month || todayIST().slice(0, 7);
+  const emps = await query(`SELECT DISTINCT username, computer FROM app_log WHERE date LIKE $1 ORDER BY username`, [`${m}%`]);
+  const report = [];
+  for (const { username, computer } of emps) {
+    const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date LIKE $3`, [username, computer, `${m}%`]);
+    const rawRows = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date LIKE $3 ORDER BY date,time`, [username, computer, `${m}%`]);
+    const browserRows = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date LIKE $3 GROUP BY domain ORDER BY secs DESC`, [username, computer, `${m}%`]);
+
+    let serial = 'N/A', ip = 'N/A', location = 'N/A';
+    for (const r of rawRows) {
+      if (r.serial && r.serial !== 'N/A') serial = r.serial;
+      if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
+      if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
+    }
+
+    let activeS = 0;
+    const appCtr = {}, workCtr = {}, commsCtr = {}, nonworkCtr = {};
+    const socialCtr = {};
+    const gmailAccounts = new Set();
+    for (const ar of appRows) {
+      if ((ar.state||'active').toLowerCase() !== 'active') continue;
+      const dur = ar.duration_sec || 0;
+      activeS += dur;
+      appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
+      const cls = classify(ar.app, ar.window_title);
+      if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
+      else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
+      else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
+      // social from window titles
+      const tl = (ar.window_title||'').toLowerCase();
+      for (const kw of SOCIAL_KW) {
+        if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
+          socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
+        }
+      }
+      // gmail accounts
+      const isBrowser = ['chrome','firefox','msedge','edge'].some(b=>(ar.app||'').toLowerCase().includes(b));
+      if (isBrowser) {
+        const matches = (ar.window_title||'').match(EMAIL_RE) || [];
+        matches.forEach(e => gmailAccounts.add(e));
+      }
+    }
+
+    const total = activeS || 1;
+    const workPct  = Math.round(Object.values(workCtr).reduce((a,b)=>a+b,0)/total*100);
+    const commsPct = Math.round(Object.values(commsCtr).reduce((a,b)=>a+b,0)/total*100);
+    const nonworkPct = Math.round(Object.values(nonworkCtr).reduce((a,b)=>a+b,0)/total*100);
+
+    const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([a,s])=>`${friendlyName(a)} (${fmtSecs(s)})`).join(', ');
+    const workDetails = Object.entries(workCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([a,s])=>`${friendlyName(a)}: ${fmtSecs(s)}`).join(', ');
+    const commsDetails = Object.entries(commsCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([a,s])=>`${friendlyName(a)}: ${fmtSecs(s)}`).join(', ');
+    const socialAlerts = Object.entries(socialCtr)
+      .map(([k,v])=>`${k}: ${fmtSecs(v)}`).join(', ') || 'None';
+    const fileSites = browserRows.filter(s=>[...FILE_SHARING_DOMAINS].some(fd=>s.domain.includes(fd)))
+      .map(s=>s.domain).join(', ') || 'None';
+    const daysWorked = new Set(appRows.map(r=>r.date)).size;
+
+    report.push({
+      'Employee Name': username,
+      'System Name': computer,
+      'Serial Number': serial,
+      'IP Address': ip,
+      'Location': location,
+      'Days Worked': daysWorked,
+      'Total Active Time': fmtSecs(activeS),
+      'Top Applications': topApps,
+      'Work Details': workDetails,
+      'Work %': workPct + '%',
+      'Comms Details': commsDetails,
+      'Comms %': commsPct + '%',
+      'Non-Work %': nonworkPct + '%',
+      'Social Media Alerts': socialAlerts,
+      'File Sharing Sites': fileSites,
+      'Email Accounts Used': [...gmailAccounts].join(', ') || 'N/A',
+    });
+  }
+  return { report, month: m };
+}
+
+app.get('/api/report/excel', async (req, res) => {
+  try {
+    const { report, month } = await buildMonthlyReport(req.query.month);
+    const ws = XLSX.utils.json_to_sheet(report);
+    // Column widths
+    ws['!cols'] = [20,20,16,16,20,10,16,40,40,10,40,10,10,30,30,30].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Report ${month}`);
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', `attachment; filename="EmpMon_Report_${month}.xlsx"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/report/pdf', async (req, res) => {
+  try {
+    const { report, month } = await buildMonthlyReport(req.query.month);
+    const rows = report.map(r => `
+      <tr>
+        <td>${r['Employee Name']}</td><td>${r['System Name']}</td>
+        <td>${r['Serial Number']}</td><td>${r['IP Address']}</td>
+        <td>${r['Location']}</td><td>${r['Days Worked']}</td>
+        <td>${r['Total Active Time']}</td>
+        <td class="work">${r['Work %']}</td>
+        <td>${r['Work Details']}</td>
+        <td class="comms">${r['Comms %']}</td>
+        <td>${r['Comms Details']}</td>
+        <td class="red">${r['Non-Work %']}</td>
+        <td class="red">${r['Social Media Alerts']}</td>
+        <td class="orange">${r['File Sharing Sites']}</td>
+        <td>${r['Email Accounts Used']}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>EmpMon Report ${month}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:10px;margin:20px}
+      h2{font-size:14px;margin-bottom:4px} .sub{font-size:11px;color:#555;margin-bottom:12px}
+      table{border-collapse:collapse;width:100%}
+      th{background:#1c2128;color:#fff;padding:6px 8px;text-align:left;font-size:10px;white-space:nowrap}
+      td{padding:5px 8px;border-bottom:1px solid #e0e0e0;vertical-align:top;max-width:150px;word-break:break-word}
+      tr:nth-child(even){background:#f9f9f9}
+      .work{color:#2d9e4f;font-weight:700}.comms{color:#1a6fc4;font-weight:700}
+      .red{color:#c0392b}.orange{color:#d35400}
+      @media print{body{margin:0}@page{size:A3 landscape;margin:10mm}}
+    </style></head><body>
+    <h2>📊 ${COMPANY} — Monthly Activity Report</h2>
+    <div class="sub">Period: ${month} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})}</div>
+    <table>
+      <thead><tr>
+        <th>Employee</th><th>System</th><th>Serial</th><th>IP</th><th>Location</th>
+        <th>Days</th><th>Active Time</th>
+        <th>Work%</th><th>Work Details</th>
+        <th>Comms%</th><th>Comms Details</th>
+        <th>Non-Work%</th><th>Social Media</th><th>File Sharing</th><th>Email Accounts</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <script>window.onload=()=>window.print()</script>
+    </body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/status', (req, res) => res.json({ status: 'ok', server: COMPANY, version: '9.0' }));
