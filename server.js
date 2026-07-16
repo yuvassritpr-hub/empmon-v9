@@ -613,7 +613,7 @@ async function getEmployeeDetail(username, computer, forDate) {
       if (firstLogin === '--') firstLogin = r.time;
       if (t) loginTimes.push(t);
     }
-    if (ev.includes('LOGOUT') && ev.includes('SHUTDOWN')) {
+    if (ev.includes('SHUTDOWN') || (ev.includes('LOGOUT') && !ev.includes('LOCK') && !ev.includes('IDLE'))) {
       lastShutdown = r.time;
       if (t) shutdownTimes.push(t);
     }
