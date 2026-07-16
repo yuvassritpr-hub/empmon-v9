@@ -405,7 +405,14 @@ const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.]+/g;
 
 async function getAllEmployeesToday() {
   const today = todayIST();
-  const emps = await query(`SELECT DISTINCT username, computer FROM raw_log ORDER BY username`);
+  // Include employees who have app_log today even if raw_log login event is missing (after data clear)
+  const emps = await query(`
+    SELECT DISTINCT username, computer FROM (
+      SELECT username, computer FROM raw_log WHERE date=$1
+      UNION
+      SELECT username, computer FROM app_log WHERE date=$1
+    ) t ORDER BY username
+  `, [today]);
   const rows = [];
   let online = 0, idle = 0, offline = 0, totalActive = 0;
 

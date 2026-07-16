@@ -14,19 +14,26 @@ const NAV = [
 
 function PrideGlobalLogo() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
-        <path d="M8 24 C8 14 14 8 24 8 C34 8 40 14 40 24" stroke="#C9A84C" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
-        <path d="M12 29 C12 21 17 16 24 16 C31 16 36 21 36 29" stroke="#C9A84C" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
-        <path d="M16 34 C16 28 19 24 24 24 C29 24 32 28 32 34" stroke="#C9A84C" strokeWidth="2.8" fill="none" strokeLinecap="round"/>
-        <line x1="8" y1="38" x2="40" y2="38" stroke="#C9A84C" strokeWidth="2.2" strokeLinecap="round"/>
-        <line x1="10" y1="42" x2="38" y2="42" stroke="#C9A84C" strokeWidth="1.4" strokeLinecap="round" opacity="0.5"/>
-      </svg>
-      <div>
-        <div style={{ fontSize: 17, fontWeight: 900, color: '#7B3FA0', letterSpacing: 2.5, lineHeight: 1.1 }}>PRIDE</div>
-        <div style={{ fontSize: 9, fontWeight: 700, color: '#C9A84C', letterSpacing: 5, marginTop: 1 }}>GLOBAL</div>
-      </div>
-    </div>
+    <svg width="180" height="54" viewBox="0 0 220 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="2" y="2" width="64" height="64" rx="4" stroke="#B8960C" strokeWidth="2.5" fill="none"/>
+      <line x1="34" y1="2" x2="34" y2="66" stroke="#B8960C" strokeWidth="1.2"/>
+      <line x1="2" y1="34" x2="66" y2="34" stroke="#B8960C" strokeWidth="1.2"/>
+      <path d="M36 32 Q44 24 52 20" stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M36 27 Q46 18 56 14" stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M36 22 Q47 12 60 9"  stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <circle cx="36" cy="33" r="2.2" fill="#B8960C"/>
+      <path d="M18 28 C14 22 10 16 18 12 C26 8 28 16 24 22 Z" fill="#B8960C" opacity="0.85"/>
+      <path d="M12 28 C8 22 6 14 14 10" stroke="#B8960C" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <circle cx="18" cy="28" r="2" fill="#B8960C"/>
+      <path d="M6 42 Q12 38 18 42 Q24 46 30 42" stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M6 49 Q12 45 18 49 Q24 53 30 49" stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M6 56 Q12 52 18 56 Q24 60 30 56" stroke="#B8960C" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+      <path d="M38 38 C44 38 58 42 58 54 C58 62 48 64 42 58 C36 52 36 42 38 38 Z" fill="#B8960C" opacity="0.85"/>
+      <text x="82" y="44" fontFamily="Georgia,'Times New Roman',serif" fontSize="34" fontWeight="700" fill="#4A1550" letterSpacing="2">PRIDE</text>
+      <line x1="82" y1="56" x2="94" y2="56" stroke="#B8960C" strokeWidth="1.5"/>
+      <text x="99" y="61" fontFamily="Georgia,'Times New Roman',serif" fontSize="13" fontWeight="500" fill="#4A1550" letterSpacing="3">GLOBAL</text>
+      <line x1="170" y1="56" x2="182" y2="56" stroke="#B8960C" strokeWidth="1.5"/>
+    </svg>
   )
 }
 
@@ -38,11 +45,8 @@ function Sidebar({ onLogout }) {
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       position: 'fixed', top: 0, left: 0, zIndex: 100,
     }}>
-      <div style={{ padding: '0 18px 20px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '12px 14px 16px', borderBottom: '1px solid var(--border)' }}>
         <PrideGlobalLogo />
-        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 8, letterSpacing: 0.5 }}>
-          Employee Monitor
-        </div>
       </div>
 
       <nav style={{ padding: '16px 10px', flex: 1 }}>
