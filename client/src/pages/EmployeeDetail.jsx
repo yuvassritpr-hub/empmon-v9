@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -49,6 +49,7 @@ export default function EmployeeDetail() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [dayData, setDayData] = useState(null)
   const [dayLoading, setDayLoading] = useState(false)
+  const drillRef = useRef(null)
 
   useEffect(() => {
     fetch(`/api/employee/${encodeURIComponent(username)}/${encodeURIComponent(computer)}`)
@@ -60,7 +61,10 @@ export default function EmployeeDetail() {
     setSelectedDate(date)
     setDayLoading(true)
     fetch(`/api/employee/${encodeURIComponent(username)}/${encodeURIComponent(computer)}?date=${date}`)
-      .then(r=>r.json()).then(d=>{setDayData(d);setDayLoading(false)}).catch(()=>setDayLoading(false))
+      .then(r=>r.json()).then(d=>{
+        setDayData(d);setDayLoading(false);
+        setTimeout(()=>drillRef.current?.scrollIntoView({behavior:'smooth',block:'start'}),100)
+      }).catch(()=>setDayLoading(false))
   }, [username, computer, selectedDate])
 
   if (loading) return <div style={{padding:40,color:'var(--text-dim)'}}>Loading...</div>
@@ -322,7 +326,7 @@ export default function EmployeeDetail() {
 
       {/* Day drill-down panel */}
       {selectedDate && (
-        <div style={{background:'var(--card)',border:'2px solid var(--accent)',borderRadius:12,padding:20,marginTop:16}}>
+        <div ref={drillRef} style={{background:'var(--card)',border:'2px solid var(--accent)',borderRadius:12,padding:20,marginTop:16}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <div>
               <span style={{fontWeight:700,fontSize:15}}>📅 {selectedDate}</span>
