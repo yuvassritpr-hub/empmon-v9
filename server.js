@@ -442,9 +442,20 @@ async function getAllEmployeesToday() {
       if (sorted[0]?.start_time) firstLogin = sorted[0].start_time.slice(0,5);
     }
 
+    // Also use latest app_log entry time for status when raw_log events are missing
+    let lastAppDt = null;
+    if (appRows.length > 0) {
+      const sorted = [...appRows].sort((a,b)=>(b.end_time||b.start_time||'').localeCompare(a.end_time||a.start_time||''));
+      const latestTime = sorted[0]?.end_time || sorted[0]?.start_time;
+      if (latestTime) try { lastAppDt = new Date(`${today}T${latestTime}`); } catch {}
+    }
+    const effectiveDt = lastEventDt && lastAppDt
+      ? (lastEventDt > lastAppDt ? lastEventDt : lastAppDt)
+      : (lastEventDt || lastAppDt);
+
     let status = 'Offline';
-    if (lastEventDt) {
-      const minsAgo = (nowIST() - lastEventDt) / 60000;
+    if (effectiveDt) {
+      const minsAgo = (nowIST() - effectiveDt) / 60000;
       const lastEv = todayRaw.length ? todayRaw[todayRaw.length-1].event.toUpperCase() : '';
       if (['LOGOUT(SHUTDOWN)','LOGOUT(LOGOFF)','LOGOUT(LOCK)','LOGOUT(SCREEN-OFF)'].includes(lastEv)) {
         status = 'Offline';
