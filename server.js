@@ -629,19 +629,13 @@ async function getEmployeeDetail(username, computer, forDate) {
     const t = (firstApp.start_time||'').slice(0,5);
     if (t) { firstLogin = firstApp.start_time; loginTimes.push(t + ' (est)'); }
   }
-  // Fallback: if no shutdown today, check yesterday's raw_log for a shutdown event
-  if (lastShutdown === '--' && shutdownTimes.length === 0) {
-    const prevDate = new Date(today + 'T00:00:00+05:30');
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateStr = prevDate.toISOString().slice(0, 10);
-    const prevRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, prevDateStr]);
-    for (const r of prevRaw) {
-      const ev = r.event.toUpperCase();
-      if (ev.includes('LOGOUT') && ev.includes('SHUTDOWN')) {
-        lastShutdown = r.time;
-        const t = (r.time||'').slice(0,5);
-        if (t) shutdownTimes.push(t + ' (prev day)');
-      }
+  // Fallback: if no shutdown event, infer from last app_log end_time for this date
+  if (shutdownTimes.length === 0 && appRows.length > 0) {
+    const sorted = [...appRows].sort((a,b) => (b.end_time||b.start_time||'').localeCompare(a.end_time||a.start_time||''));
+    const lastEndTime = sorted[0]?.end_time || sorted[0]?.start_time;
+    if (lastEndTime) {
+      const t = lastEndTime.slice(0,5);
+      if (t) { lastShutdown = lastEndTime; shutdownTimes.push(t + ' (est)'); }
     }
   }
 
