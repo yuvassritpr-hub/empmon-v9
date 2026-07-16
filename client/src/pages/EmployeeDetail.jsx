@@ -407,6 +407,34 @@ export default function EmployeeDetail() {
                   </div>
                 </div>
               )}
+              {/* Day social alerts */}
+              {(dayData.socialAlerts||[]).length > 0 && (
+                <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid #f8514933'}}>
+                  <div style={{fontWeight:700,fontSize:12,color:'var(--red)',marginBottom:8}}>⚠ Social Media Alerts</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {dayData.socialAlerts.map((s,i)=>(
+                      <span key={i} style={{background:'#f8514922',color:'#f87171',
+                        border:'1px solid #f8514944',borderRadius:6,padding:'3px 10px',fontSize:12,fontWeight:600}}>
+                        {s.site} · {s.dur}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Day shutdown times */}
+              {(dayData.shutdownTimes||[]).length > 0 && (
+                <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+                  <div style={{fontWeight:700,fontSize:12,color:'var(--red)',marginBottom:8}}>⏹ Shutdown Times</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {dayData.shutdownTimes.map((t,i)=>(
+                      <span key={i} style={{background:'#f8514918',color:'var(--red)',
+                        border:'1px solid #f8514933',borderRadius:6,padding:'3px 10px',fontSize:12,fontWeight:600}}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
