@@ -287,31 +287,33 @@ export default function EmployeeDetail() {
       )}
 
       {/* Calendar — click any day to see full details */}
+      <style>{`
+        .cal-tile:hover { filter: brightness(1.3); transform: scale(1.05) !important; }
+        .cal-tile { transition: all .15s ease; }
+      `}</style>
       <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
-        <div style={{fontWeight:600,marginBottom:4}}>Last 30 Days</div>
-        <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:14}}>Click any day to see that day's full details</div>
-        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <div style={{fontWeight:600,marginBottom:4}}>Last 30 Days — <span style={{color:'var(--accent)',fontWeight:400,fontSize:12}}>click any date to see that day's data</span></div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}>
           {(data.cal||[]).map(d=>{
             const isSelected = selectedDate === d.date
             return (
-              <div key={d.date}
-                onClick={() => d.worked && loadDay(d.date)}
+              <div key={d.date} className="cal-tile"
+                onClick={() => loadDay(d.date)}
                 style={{
-                  background: isSelected ? 'var(--accent)44' : d.worked ? 'var(--accent)18' : '#ffffff06',
-                  border: `2px solid ${isSelected ? 'var(--accent)' : d.worked ? 'var(--accent)44' : 'var(--border)'}`,
+                  background: isSelected ? '#4493f8' : d.worked ? 'var(--accent)22' : '#ffffff08',
+                  border: `2px solid ${isSelected ? '#4493f8' : d.worked ? 'var(--accent)66' : 'var(--border)'}`,
                   borderRadius:8, padding:'8px 10px', minWidth:88,
-                  cursor: d.worked ? 'pointer' : 'default',
-                  transition:'all .15s',
-                  transform: isSelected ? 'scale(1.04)' : 'scale(1)',
+                  cursor:'pointer',
+                  transform: isSelected ? 'scale(1.06)' : 'scale(1)',
+                  boxShadow: isSelected ? '0 4px 16px rgba(68,147,248,.4)' : 'none',
                 }}>
-                <div style={{fontSize:11,color: isSelected ? 'var(--accent)' : 'var(--text-dim)',fontWeight:700}}>{d.day}</div>
+                <div style={{fontSize:11,fontWeight:700,color: isSelected ? '#fff' : d.worked ? 'var(--accent)' : 'var(--text-dim)'}}>{d.day}</div>
                 {d.worked ? <>
                   <div style={{fontSize:14,fontWeight:700,marginTop:2,color: isSelected ? '#fff' : 'var(--text)'}}>{d.dec}h</div>
-                  {d.login!=='--' && <div style={{fontSize:10,color:'var(--green)',marginTop:2}}>▶ {d.login}</div>}
-                  {d.logout!=='--' && <div style={{fontSize:10,color:'var(--red)'}}>⏹ {d.logout}</div>}
-                  <div style={{fontSize:10,color:'var(--accent)'}}>Act: {d.active}</div>
-                  {d.idle!=='0h 00m 00s' && <div style={{fontSize:10,color:'var(--yellow)'}}>Idle: {d.idle}</div>}
-                </> : <div style={{fontSize:20,color:'var(--border)',marginTop:4}}>—</div>}
+                  {d.login!=='--' && <div style={{fontSize:10,color: isSelected ? '#cfffcf' : 'var(--green)',marginTop:2}}>▶ {d.login}</div>}
+                  {d.logout!=='--' && <div style={{fontSize:10,color: isSelected ? '#ffc8c8' : 'var(--red)'}}>⏹ {d.logout}</div>}
+                  <div style={{fontSize:10,color: isSelected ? '#c8e8ff' : 'var(--accent)'}}>Act: {d.active}</div>
+                </> : <div style={{fontSize:11,color:'var(--text-dim)',marginTop:6}}>no data</div>}
               </div>
             )
           })}
