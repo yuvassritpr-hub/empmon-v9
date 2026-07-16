@@ -581,7 +581,26 @@ async function getEmployeeDetail(username, computer, forDate) {
 
   const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
   const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY start_time`, [username, computer, today]);
-  const browserSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
+  const browserLogSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
+
+  // Also extract domains from browser window titles in app_log (fallback for open tabs)
+  const titleDomains = {};
+  for (const ar of (await query(`SELECT window_title, SUM(duration_sec) as dur FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 AND (app ILIKE '%chrome%' OR app ILIKE '%edge%' OR app ILIKE '%firefox%' OR app ILIKE '%opera%' OR app ILIKE '%brave%') GROUP BY window_title`, [username, computer, today]))) {
+    const title = ar.window_title || '';
+    // Extract domain from title patterns like "Page Title - site.com - Browser" or "site.com - Browser"
+    const domainMatch = title.match(/[-–]\s*([\w.-]+\.[a-z]{2,})\s*[-–]/i) ||
+                        title.match(/([\w.-]+\.(com|org|net|io|co|in|gov|edu|sharepoint|onmicrosoft)[\w.]*)/i);
+    if (domainMatch) {
+      let domain = domainMatch[1].toLowerCase().replace(/^www\./, '');
+      titleDomains[domain] = (titleDomains[domain]||0) + (ar.dur||0);
+    }
+  }
+  // Merge browser_log + title-extracted domains
+  const merged = {};
+  for (const s of browserLogSites) merged[s.domain] = Math.max(merged[s.domain]||0, s.secs||1);
+  for (const [d,s] of Object.entries(titleDomains)) if (!merged[d]) merged[d] = s;
+  const browserSites = Object.entries(merged).sort((a,b)=>b[1]-a[1]).slice(0,15)
+    .map(([domain,secs])=>({ domain, secs }));
   const monthRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date LIKE $3 ORDER BY date,time`, [username, computer, `${thisMonth}%`]);
   const monthApp = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date LIKE $3`, [username, computer, `${thisMonth}%`]);
 
