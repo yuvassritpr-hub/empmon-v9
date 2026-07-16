@@ -575,8 +575,8 @@ function classify(app, title) {
   return 'work';
 }
 
-async function getEmployeeDetail(username, computer) {
-  const today = todayIST();
+async function getEmployeeDetail(username, computer, forDate) {
+  const today = forDate || todayIST();
   const thisMonth = today.slice(0, 7);
 
   const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
@@ -747,7 +747,7 @@ async function getEmployeeDetail(username, computer) {
   }
 
   return {
-    username, computer, serial, location, ip,
+    username, computer, serial, location, ip, viewDate: today,
     firstLogin, lastShutdown, loginTimes, shutdownTimes, lockTimes, unlockTimes,
     activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
     workPct: totalActiveS > 1 ? Math.round(Object.values(workCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
@@ -775,7 +775,7 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 app.get('/api/employee/:username/:computer', async (req, res) => {
-  try { res.json(await getEmployeeDetail(req.params.username, req.params.computer)); }
+  try { res.json(await getEmployeeDetail(req.params.username, req.params.computer, req.query.date || null)); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 

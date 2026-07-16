@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
@@ -46,11 +46,22 @@ export default function EmployeeDetail() {
   const { username, computer } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(null)
+  const [dayData, setDayData] = useState(null)
+  const [dayLoading, setDayLoading] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/employee/${username}/${computer}`)
+    fetch(`/api/employee/${encodeURIComponent(username)}/${encodeURIComponent(computer)}`)
       .then(r=>r.json()).then(d=>{setData(d);setLoading(false)}).catch(()=>setLoading(false))
   }, [username, computer])
+
+  const loadDay = useCallback((date) => {
+    if (selectedDate === date) { setSelectedDate(null); setDayData(null); return }
+    setSelectedDate(date)
+    setDayLoading(true)
+    fetch(`/api/employee/${encodeURIComponent(username)}/${encodeURIComponent(computer)}?date=${date}`)
+      .then(r=>r.json()).then(d=>{setDayData(d);setDayLoading(false)}).catch(()=>setDayLoading(false))
+  }, [username, computer, selectedDate])
 
   if (loading) return <div style={{padding:40,color:'var(--text-dim)'}}>Loading...</div>
   if (!data) return <div style={{padding:40,color:'var(--red)'}}>Failed to load</div>
@@ -275,28 +286,125 @@ export default function EmployeeDetail() {
         </div>
       )}
 
-      {/* Calendar */}
+      {/* Calendar — click any day to see full details */}
       <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20}}>
-        <div style={{fontWeight:600,marginBottom:16}}>Last 30 Days</div>
+        <div style={{fontWeight:600,marginBottom:4}}>Last 30 Days</div>
+        <div style={{fontSize:11,color:'var(--text-dim)',marginBottom:14}}>Click any day to see that day's full details</div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          {(data.cal||[]).map(d=>(
-            <div key={d.date} style={{
-              background: d.worked ? 'var(--accent)22' : '#ffffff08',
-              border: `1px solid ${d.worked ? 'var(--accent)44' : 'var(--border)'}`,
-              borderRadius:8,padding:'8px 10px',minWidth:88,
-            }}>
-              <div style={{fontSize:11,color:'var(--accent)',fontWeight:600}}>{d.day}</div>
-              {d.worked ? <>
-                <div style={{fontSize:14,fontWeight:700,marginTop:2}}>{d.dec}h</div>
-                {d.login!=='--' && <div style={{fontSize:10,color:'var(--green)',marginTop:2}}>▶ {d.login}</div>}
-                {d.logout!=='--' && <div style={{fontSize:10,color:'var(--red)'}}>⏹ {d.logout}</div>}
-                <div style={{fontSize:10,color:'var(--accent)'}}>Act: {d.active}</div>
-                {d.idle!=='0h 00m 00s' && <div style={{fontSize:10,color:'var(--yellow)'}}>Idle: {d.idle}</div>}
-              </> : <div style={{fontSize:20,color:'var(--border)',marginTop:4}}>—</div>}
-            </div>
-          ))}
+          {(data.cal||[]).map(d=>{
+            const isSelected = selectedDate === d.date
+            return (
+              <div key={d.date}
+                onClick={() => d.worked && loadDay(d.date)}
+                style={{
+                  background: isSelected ? 'var(--accent)44' : d.worked ? 'var(--accent)18' : '#ffffff06',
+                  border: `2px solid ${isSelected ? 'var(--accent)' : d.worked ? 'var(--accent)44' : 'var(--border)'}`,
+                  borderRadius:8, padding:'8px 10px', minWidth:88,
+                  cursor: d.worked ? 'pointer' : 'default',
+                  transition:'all .15s',
+                  transform: isSelected ? 'scale(1.04)' : 'scale(1)',
+                }}>
+                <div style={{fontSize:11,color: isSelected ? 'var(--accent)' : 'var(--text-dim)',fontWeight:700}}>{d.day}</div>
+                {d.worked ? <>
+                  <div style={{fontSize:14,fontWeight:700,marginTop:2,color: isSelected ? '#fff' : 'var(--text)'}}>{d.dec}h</div>
+                  {d.login!=='--' && <div style={{fontSize:10,color:'var(--green)',marginTop:2}}>▶ {d.login}</div>}
+                  {d.logout!=='--' && <div style={{fontSize:10,color:'var(--red)'}}>⏹ {d.logout}</div>}
+                  <div style={{fontSize:10,color:'var(--accent)'}}>Act: {d.active}</div>
+                  {d.idle!=='0h 00m 00s' && <div style={{fontSize:10,color:'var(--yellow)'}}>Idle: {d.idle}</div>}
+                </> : <div style={{fontSize:20,color:'var(--border)',marginTop:4}}>—</div>}
+              </div>
+            )
+          })}
         </div>
       </div>
+
+      {/* Day drill-down panel */}
+      {selectedDate && (
+        <div style={{background:'var(--card)',border:'2px solid var(--accent)',borderRadius:12,padding:20,marginTop:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+            <div>
+              <span style={{fontWeight:700,fontSize:15}}>📅 {selectedDate}</span>
+              <span style={{fontSize:12,color:'var(--text-dim)',marginLeft:10}}>Detailed breakdown for this day</span>
+            </div>
+            <button onClick={()=>{setSelectedDate(null);setDayData(null)}} style={{
+              background:'transparent',border:'1px solid var(--border)',color:'var(--text-dim)',
+              borderRadius:6,padding:'4px 10px',cursor:'pointer',fontSize:12
+            }}>✕ Close</button>
+          </div>
+          {dayLoading && <div style={{color:'var(--text-dim)'}}>Loading...</div>}
+          {dayData && !dayLoading && (
+            <>
+              {/* Day stats */}
+              <div style={{display:'flex',gap:20,flexWrap:'wrap',marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
+                {[
+                  {label:'Login',    value:dayData.firstLogin||'--',  color:'var(--green)'},
+                  {label:'Shutdown', value:dayData.lastShutdown||'--',color:'var(--red)'},
+                  {label:'Active',   value:dayData.activeToday,       color:'var(--accent)'},
+                  {label:'Idle',     value:dayData.idleToday,         color:'var(--yellow)'},
+                  {label:'Work',     value:(dayData.workPct||0)+'%',  color:'var(--green)'},
+                  {label:'Comms',    value:(dayData.commsPct||0)+'%', color:'var(--accent)'},
+                  {label:'Non-Work', value:(dayData.nonworkPct||0)+'%',color:'var(--red)'},
+                ].map(s=>(
+                  <div key={s.label} style={{textAlign:'center'}}>
+                    <div style={{fontWeight:700,color:s.color,fontSize:15}}>{s.value}</div>
+                    <div style={{fontSize:11,color:'var(--text-dim)'}}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Day work + comms details */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                <div>
+                  <div style={{fontWeight:700,color:'var(--green)',fontSize:12,marginBottom:8}}>Work Details</div>
+                  {(dayData.workTitleList||[]).length > 0
+                    ? (dayData.workTitleList||[]).map((t,i)=>(
+                        <div key={i} style={{marginBottom:6}}>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2,gap:8}}>
+                            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{t.title}</span>
+                            <span style={{color:'var(--text-dim)',flexShrink:0}}>{t.dur}</span>
+                          </div>
+                          <div style={{height:3,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${t.pct}%`,background:'var(--green)',borderRadius:2}}/>
+                          </div>
+                        </div>
+                      ))
+                    : <div style={{color:'var(--text-dim)',fontSize:12}}>No work activity</div>}
+                </div>
+                <div>
+                  <div style={{fontWeight:700,color:'var(--accent)',fontSize:12,marginBottom:8}}>Comms Details</div>
+                  {(dayData.commsTitleList||[]).length > 0
+                    ? (dayData.commsTitleList||[]).map((t,i)=>(
+                        <div key={i} style={{marginBottom:6}}>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2,gap:8}}>
+                            <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{t.title}</span>
+                            <span style={{color:'var(--text-dim)',flexShrink:0}}>{t.dur}</span>
+                          </div>
+                          <div style={{height:3,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${t.pct}%`,background:'var(--accent)',borderRadius:2}}/>
+                          </div>
+                        </div>
+                      ))
+                    : <div style={{color:'var(--text-dim)',fontSize:12}}>No comms activity</div>}
+                </div>
+              </div>
+              {/* Day top apps */}
+              {(dayData.topApps||[]).length > 0 && (
+                <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+                  <div style={{fontWeight:700,fontSize:12,marginBottom:8}}>Top Apps</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {dayData.topApps.map((a,i)=>(
+                      <span key={i} style={{fontSize:11,padding:'2px 10px',borderRadius:6,
+                        background:APP_COLORS[i%APP_COLORS.length]+'22',color:APP_COLORS[i%APP_COLORS.length],
+                        border:`1px solid ${APP_COLORS[i%APP_COLORS.length]}44`}}>
+                        {a.app} · {a.dur}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
