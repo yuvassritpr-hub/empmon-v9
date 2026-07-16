@@ -186,7 +186,7 @@ export default function Dashboard() {
                   </Link>
                 )}
                 {e.fileSharingSites?.length > 0 && (
-                  <Link to={{`/employee/${encodeURIComponent(e.username)}/${encodeURIComponent(e.computer)}`}} style={{ marginLeft: 4, background:'var(--orange)', color:'#fff',
+                  <Link to={`/employee/${encodeURIComponent(e.username)}/${encodeURIComponent(e.computer)}`} style={{ marginLeft: 4, background:'var(--orange)', color:'#fff',
                     fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 6px', textDecoration:'none' }}>
                     📤 FILE SHARE
                   </Link>
@@ -259,7 +259,7 @@ export default function Dashboard() {
             </div>
 
             {/* View button */}
-            <Link to={{`/employee/${encodeURIComponent(e.username)}/${encodeURIComponent(e.computer)}`}} style={{
+            <Link to={`/employee/${encodeURIComponent(e.username)}/${encodeURIComponent(e.computer)}`} style={{
               background: 'var(--accent)22', border: '1px solid var(--accent)44',
               color: 'var(--accent)', borderRadius: 8, padding: '6px 16px',
               fontSize: 13, fontWeight: 600, textDecoration: 'none', flexShrink: 0,
