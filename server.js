@@ -629,13 +629,19 @@ async function getEmployeeDetail(username, computer, forDate) {
     const t = (firstApp.start_time||'').slice(0,5);
     if (t) { firstLogin = firstApp.start_time; loginTimes.push(t + ' (est)'); }
   }
-  // Fallback: if no shutdown event, infer from last app_log end_time for this date
-  if (shutdownTimes.length === 0 && appRows.length > 0) {
+  // Always check last app activity — if it's 30+ min after last recorded shutdown, add estimated final shutdown
+  if (appRows.length > 0) {
     const sorted = [...appRows].sort((a,b) => (b.end_time||b.start_time||'').localeCompare(a.end_time||a.start_time||''));
     const lastEndTime = sorted[0]?.end_time || sorted[0]?.start_time;
     if (lastEndTime) {
-      const t = lastEndTime.slice(0,5);
-      if (t) { lastShutdown = lastEndTime; shutdownTimes.push(t + ' (est)'); }
+      const lastAppMins = parseInt(lastEndTime.slice(0,2))*60 + parseInt(lastEndTime.slice(3,5));
+      const lastShutMins = shutdownTimes.length > 0
+        ? (() => { const s = shutdownTimes[shutdownTimes.length-1].replace(' (est)','').replace(' (prev day)',''); return parseInt(s.slice(0,2))*60 + parseInt(s.slice(3,5)); })()
+        : -999;
+      if (lastAppMins - lastShutMins > 30) {
+        const t = lastEndTime.slice(0,5);
+        if (t) { lastShutdown = lastEndTime; shutdownTimes.push(t + ' (est)'); }
+      }
     }
   }
 
