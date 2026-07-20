@@ -332,7 +332,7 @@ export default function EmployeeDetail() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:'1px solid var(--border)'}}>
-                  {['Date','Day','IP Address','Location'].map(h=>(
+                  {['Date','Day','IP Address','ISP / Provider','Location'].map(h=>(
                     <th key={h} style={{textAlign:'left',padding:'6px 12px',color:'var(--text-dim)',fontWeight:600,whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -344,14 +344,19 @@ export default function EmployeeDetail() {
                     <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>{d.day}</td>
                     <td style={{padding:'6px 12px'}}>
                       {d.ips?.length>0
-                        ? d.ips.map((ip,j)=>(
+                        ? d.ips.map((entry,j)=>(
                             <span key={j} style={{display:'inline-block',marginRight:6,padding:'2px 8px',
                               background:'#4493f818',border:'1px solid #4493f833',borderRadius:4,
-                              color:'var(--text)',fontFamily:'monospace'}}>{ip}</span>
+                              color:'var(--text)',fontFamily:'monospace'}}>{entry.ip||entry}</span>
                           ))
                         : <span style={{color:'var(--text-dim)'}}>—</span>}
                     </td>
-                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>{d.location||'—'}</td>
+                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
+                      {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.isp||'').filter(Boolean))].join(', ')||'—' : '—'}
+                    </td>
+                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
+                      {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.city||'').filter(Boolean))].join(', ')||d.location||'—' : d.location||'—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

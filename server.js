@@ -3,6 +3,27 @@ const XLSX = require('xlsx');
 const { Pool } = require('pg');
 const path = require('path');
 const cors = require('cors');
+const https = require('https');
+
+// Simple in-memory IP info cache
+const ipInfoCache = {};
+function getIpInfo(ip) {
+  if (ipInfoCache[ip]) return Promise.resolve(ipInfoCache[ip]);
+  return new Promise(resolve => {
+    https.get(`https://ipinfo.io/${ip}/json`, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          const info = { city: j.city||'', region: j.region||'', country: j.country||'', org: (j.org||'').replace(/^AS\d+\s*/,'') };
+          ipInfoCache[ip] = info;
+          resolve(info);
+        } catch { resolve({}); }
+      });
+    }).on('error', () => resolve({}));
+  });
+}
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -754,15 +775,20 @@ async function getEmployeeDetail(username, computer, forDate) {
     }
   }
 
-  // Calendar (last 30 days) + IP history
+  // Calendar (last 30 days) + IP history with ISP lookup
   const cal = [];
   const ipHistory = {};
+  const allIps = new Set();
   for (const r of monthRaw) {
     if (r.ip && r.ip !== 'N/A' && r.ip.includes('.')) {
       if (!ipHistory[r.date]) ipHistory[r.date] = new Set();
       ipHistory[r.date].add(r.ip);
+      allIps.add(r.ip);
     }
   }
+  // Fetch ISP info for all unique IPs in parallel
+  const ipInfoMap = {};
+  await Promise.all([...allIps].map(async ip => { ipInfoMap[ip] = await getIpInfo(ip); }));
   for (let i = 29; i >= 0; i--) {
     const d = new Date(nowIST()); d.setDate(d.getDate() - i);
     const ds = d.toISOString().slice(0,10);
@@ -785,7 +811,7 @@ async function getEmployeeDetail(username, computer, forDate) {
       login: login ? login.time.slice(0,5) : '--',
       logout: logout ? logout.time.slice(0,5) : '--',
       worked: dayActive > 0,
-      ips: ipHistory[ds] ? [...ipHistory[ds]] : [],
+      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'' })) : [],
       location: dayLocation ? `${dayLocation.city}, ${dayLocation.region||''}`.replace(/,\s*$/,'') : '',
     });
   }
