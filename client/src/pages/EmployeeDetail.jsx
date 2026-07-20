@@ -356,6 +356,10 @@ export default function EmployeeDetail() {
                     <div style={{fontSize:11,color:'var(--text-dim)'}}>{s.label}</div>
                   </div>
                 ))}
+                <div style={{marginLeft:'auto',display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
+                  {dayData.ip && dayData.ip!=='N/A' && <div style={{fontSize:12,color:'var(--text-dim)'}}>🌐 IP: <strong style={{color:'var(--text)'}}>{dayData.ip}</strong></div>}
+                  {dayData.location && dayData.location!=='N/A' && <div style={{fontSize:12,color:'var(--text-dim)'}}>📍 <strong style={{color:'var(--text)'}}>{dayData.location}</strong></div>}
+                </div>
               </div>
               {/* Day work + comms details */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
