@@ -324,6 +324,42 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
+      {/* IP History Table */}
+      {(data.cal||[]).some(d=>d.ips?.length>0) && (
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20,marginTop:16}}>
+          <div style={{fontWeight:600,marginBottom:12}}>🌐 IP & Location History — Last 30 Days</div>
+          <div style={{overflowX:'auto'}}>
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+              <thead>
+                <tr style={{borderBottom:'1px solid var(--border)'}}>
+                  {['Date','Day','IP Address','Location'].map(h=>(
+                    <th key={h} style={{textAlign:'left',padding:'6px 12px',color:'var(--text-dim)',fontWeight:600,whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(data.cal||[]).filter(d=>d.worked||d.ips?.length>0).map((d,i)=>(
+                  <tr key={d.date} style={{borderBottom:'1px solid var(--border)',background:i%2===0?'transparent':'#ffffff05'}}>
+                    <td style={{padding:'6px 12px',color:'var(--accent)',fontWeight:600}}>{d.date}</td>
+                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>{d.day}</td>
+                    <td style={{padding:'6px 12px'}}>
+                      {d.ips?.length>0
+                        ? d.ips.map((ip,j)=>(
+                            <span key={j} style={{display:'inline-block',marginRight:6,padding:'2px 8px',
+                              background:'#4493f818',border:'1px solid #4493f833',borderRadius:4,
+                              color:'var(--text)',fontFamily:'monospace'}}>{ip}</span>
+                          ))
+                        : <span style={{color:'var(--text-dim)'}}>—</span>}
+                    </td>
+                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>{d.location||'—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Day drill-down panel */}
       {selectedDate && (
         <div ref={drillRef} style={{background:'var(--card)',border:'2px solid var(--accent)',borderRadius:12,padding:20,marginTop:16}}>

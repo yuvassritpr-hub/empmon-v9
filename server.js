@@ -754,8 +754,15 @@ async function getEmployeeDetail(username, computer, forDate) {
     }
   }
 
-  // Calendar (last 30 days)
+  // Calendar (last 30 days) + IP history
   const cal = [];
+  const ipHistory = {};
+  for (const r of monthRaw) {
+    if (r.ip && r.ip !== 'N/A' && r.ip.includes('.')) {
+      if (!ipHistory[r.date]) ipHistory[r.date] = new Set();
+      ipHistory[r.date].add(r.ip);
+    }
+  }
   for (let i = 29; i >= 0; i--) {
     const d = new Date(nowIST()); d.setDate(d.getDate() - i);
     const ds = d.toISOString().slice(0,10);
@@ -768,6 +775,7 @@ async function getEmployeeDetail(username, computer, forDate) {
     const dayRaw = monthRaw.filter(r => r.date === ds);
     const login = dayRaw.find(r => r.event.toUpperCase().includes('LOGIN') && !r.event.toUpperCase().includes('LOGOUT'));
     const logout = dayRaw.filter(r => r.event.toUpperCase().includes('LOGOUT') && r.event.toUpperCase().includes('SHUTDOWN')).pop();
+    const dayLocation = dayRaw.find(r => r.city && r.city !== 'N/A');
     cal.push({
       date: ds,
       day: d.toLocaleDateString('en-IN', { weekday:'short', day:'2-digit' }),
@@ -777,6 +785,8 @@ async function getEmployeeDetail(username, computer, forDate) {
       login: login ? login.time.slice(0,5) : '--',
       logout: logout ? logout.time.slice(0,5) : '--',
       worked: dayActive > 0,
+      ips: ipHistory[ds] ? [...ipHistory[ds]] : [],
+      location: dayLocation ? `${dayLocation.city}, ${dayLocation.region||''}`.replace(/,\s*$/,'') : '',
     });
   }
 
