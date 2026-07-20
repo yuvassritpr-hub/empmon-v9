@@ -789,6 +789,12 @@ async function getEmployeeDetail(username, computer, forDate) {
   // Fetch ISP info for all unique IPs in parallel
   const ipInfoMap = {};
   await Promise.all([...allIps].map(async ip => { ipInfoMap[ip] = await getIpInfo(ip); }));
+  const MOBILE_ISP_KEYS = ['jio','vodafone','idea','vi mobile','airtel mobile','bsnl mobile','tata docomo','reliance mobile','uninor','telenor'];
+  function detectConnectionType(org='') {
+    const o = org.toLowerCase();
+    if (MOBILE_ISP_KEYS.some(k => o.includes(k))) return 'mobile';
+    return 'broadband';
+  }
   for (let i = 29; i >= 0; i--) {
     const d = new Date(nowIST()); d.setDate(d.getDate() - i);
     const ds = d.toISOString().slice(0,10);
@@ -811,7 +817,7 @@ async function getEmployeeDetail(username, computer, forDate) {
       login: login ? login.time.slice(0,5) : '--',
       logout: logout ? logout.time.slice(0,5) : '--',
       worked: dayActive > 0,
-      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'' })) : [],
+      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||'') })) : [],
       location: dayLocation ? `${dayLocation.city}, ${dayLocation.region||''}`.replace(/,\s*$/,'') : '',
     });
   }

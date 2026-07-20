@@ -332,7 +332,7 @@ export default function EmployeeDetail() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
               <thead>
                 <tr style={{borderBottom:'1px solid var(--border)'}}>
-                  {['Date','Day','IP Address','ISP / Provider','Location'].map(h=>(
+                  {['Date','Day','IP Address','Type','ISP / Provider','Location'].map(h=>(
                     <th key={h} style={{textAlign:'left',padding:'6px 12px',color:'var(--text-dim)',fontWeight:600,whiteSpace:'nowrap'}}>{h}</th>
                   ))}
                 </tr>
@@ -350,6 +350,16 @@ export default function EmployeeDetail() {
                               color:'var(--text)',fontFamily:'monospace'}}>{entry.ip||entry}</span>
                           ))
                         : <span style={{color:'var(--text-dim)'}}>—</span>}
+                    </td>
+                    <td style={{padding:'6px 12px'}}>
+                      {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.type||'broadband'))].map((t,i)=>(
+                        <span key={i} style={{
+                          display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:600,
+                          background: t==='mobile' ? '#fb850022' : '#3fb95022',
+                          color: t==='mobile' ? 'var(--orange)' : 'var(--green)',
+                          border: t==='mobile' ? '1px solid #fb850044' : '1px solid #3fb95044',
+                        }}>{t==='mobile' ? '📱 Mobile' : '🏢 Broadband'}</span>
+                      )) : '—'}
                     </td>
                     <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
                       {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.isp||'').filter(Boolean))].join(', ')||'—' : '—'}
