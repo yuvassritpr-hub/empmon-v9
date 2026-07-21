@@ -845,6 +845,15 @@ async function getEmployeeDetail(username, computer, forDate) {
 }
 
 // -- API DATA ENDPOINTS ----------------------------------------
+app.get('/api/debug/latest', async (req, res) => {
+  try {
+    const today = todayIST();
+    const raw = await query(`SELECT username, computer, date, time, event FROM raw_log ORDER BY date DESC, time DESC LIMIT 20`);
+    const app = await query(`SELECT username, computer, date, start_time, app FROM app_log ORDER BY date DESC, start_time DESC LIMIT 20`);
+    res.json({ today, raw: raw.rows||raw, app: app.rows||app });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/dashboard', async (req, res) => {
   try { res.json(await getAllEmployeesToday()); }
   catch(e) { res.status(500).json({ error: e.message }); }
