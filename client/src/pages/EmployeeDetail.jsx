@@ -324,6 +324,26 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
+      {/* Quick Start Panel */}
+      <div style={{background:'var(--card)',border:'1px solid #f8514933',borderRadius:12,padding:20,marginBottom:16}}>
+        <div style={{fontWeight:600,marginBottom:10,color:'var(--red)'}}>⚡ Agent Not Responding? Start Manually</div>
+        <div style={{fontSize:12,color:'var(--text-dim)',marginBottom:12}}>Ask <strong style={{color:'var(--text)'}}>{username}</strong> to open Run (<kbd style={{background:'var(--border)',padding:'1px 6px',borderRadius:4}}>Win+R</kbd>) and paste this command:</div>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <code style={{flex:1,background:'#0d1117',border:'1px solid var(--border)',borderRadius:8,padding:'10px 14px',
+            fontSize:13,color:'#58a6ff',fontFamily:'monospace',wordBreak:'break-all'}}>
+            %APPDATA%\EmpMonAgent\EmpMonAgent.exe
+          </code>
+          <button onClick={()=>{navigator.clipboard.writeText('%APPDATA%\\EmpMonAgent\\EmpMonAgent.exe');alert('Copied!')}}
+            style={{background:'var(--accent)',color:'#fff',border:'none',borderRadius:8,
+              padding:'10px 16px',cursor:'pointer',fontSize:12,fontWeight:600,flexShrink:0}}>
+            📋 Copy
+          </button>
+        </div>
+        <div style={{fontSize:11,color:'var(--text-dim)',marginTop:8}}>
+          After running, employee will appear Online on dashboard within 1–2 minutes.
+        </div>
+      </div>
+
       {/* IP History Table */}
       {(data.cal||[]).some(d=>d.ips?.length>0) && (
         <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20,marginTop:16}}>
