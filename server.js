@@ -234,6 +234,13 @@ app.post('/api/heartbeat', async (req, res) => {
         }
       }
     }
+    if (d.disks && Array.isArray(d.disks)) {
+      for (const disk of d.disks) {
+        await query(`INSERT INTO disk_log (date,time,username,computer,drive,total_gb,used_gb,free_gb,pct_used,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [today, now, d.username, d.computer||'N/A', disk.drive||'C:',
+           disk.total_gb||0, disk.used_gb||0, disk.free_gb||0, disk.pct_used||0, receivedAt]);
+      }
+    }
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
     res.json({ status: 'ok', known: known.length > 0 });
@@ -602,6 +609,7 @@ async function getEmployeeDetail(username, computer, forDate) {
 
   const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
   const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY start_time`, [username, computer, today]);
+  const diskRows = await query(`SELECT drive, MAX(total_gb) as total_gb, MAX(used_gb) as used_gb, MAX(free_gb) as free_gb, MAX(pct_used) as pct_used FROM disk_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY drive ORDER BY drive`, [username, computer, today]);
   const browserLogSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
 
   // Also extract domains from browser window titles in app_log (fallback for open tabs)
@@ -831,7 +839,7 @@ async function getEmployeeDetail(username, computer, forDate) {
     nonworkPct: totalActiveS > 1 ? Math.round(Object.values(nonworkCtr).reduce((a,b)=>a+b,0)/totalActiveS*100) : 0,
     topApps, workApps, commsApps, nonworkApps,
     workTitleList, commsTitleList, nonworkTitleList,
-    socialAlerts, fileSharingSites, gmailList, topTabs, browserSites,
+    socialAlerts, fileSharingSites, gmailList, topTabs, browserSites, diskInfo: diskRows,
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),

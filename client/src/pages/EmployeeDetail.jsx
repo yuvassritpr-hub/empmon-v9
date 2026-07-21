@@ -112,6 +112,35 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
+      {/* Disk Storage */}
+      {(data.diskInfo||[]).length > 0 && (
+        <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:20,marginBottom:20}}>
+          <div style={{fontWeight:600,marginBottom:14}}>💾 Drive Storage</div>
+          <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+            {data.diskInfo.map((d,i)=>{
+              const pct = d.pct_used || Math.round((d.used_gb/d.total_gb)*100) || 0
+              const color = pct > 90 ? 'var(--red)' : pct > 70 ? 'var(--yellow)' : 'var(--green)'
+              return (
+                <div key={i} style={{flex:1,minWidth:160,background:'var(--border)',borderRadius:10,padding:16}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                    <span style={{fontWeight:700,fontSize:14}}>{d.drive}</span>
+                    <span style={{fontSize:13,fontWeight:700,color}}>{pct}%</span>
+                  </div>
+                  <div style={{height:8,background:'#ffffff15',borderRadius:4,overflow:'hidden',marginBottom:8}}>
+                    <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:4,transition:'width .3s'}}/>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--text-dim)'}}>
+                    <span>Used: <strong style={{color:'var(--text)'}}>{d.used_gb} GB</strong></span>
+                    <span>Free: <strong style={{color}}>{d.free_gb || (d.total_gb - d.used_gb).toFixed(1)} GB</strong></span>
+                    <span>Total: <strong style={{color:'var(--text)'}}>{d.total_gb} GB</strong></span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Login / Shutdown / Lock / Unlock times */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
         {[
