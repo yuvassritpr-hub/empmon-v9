@@ -608,7 +608,8 @@ async function getEmployeeDetail(username, computer, forDate) {
   const thisMonth = today.slice(0, 7);
 
   const todayRaw = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time`, [username, computer, today]);
-  const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY start_time`, [username, computer, today]);
+  // Deduplicate app_log: if multiple agents running, same app+start_time gets sent multiple times — take one row per app+start_time
+  const appRows = await query(`SELECT DISTINCT ON (app, start_time, window_title) * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY app, start_time, window_title, id DESC`, [username, computer, today]);
   const diskRows = await query(`SELECT drive, MAX(total_gb) as total_gb, MAX(used_gb) as used_gb, MAX(free_gb) as free_gb, MAX(pct_used) as pct_used FROM disk_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY drive ORDER BY drive`, [username, computer, today]);
   const browserLogSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
 
