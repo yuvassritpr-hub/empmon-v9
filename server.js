@@ -854,6 +854,26 @@ async function getEmployeeDetail(username, computer, forDate) {
 }
 
 // -- API DATA ENDPOINTS ----------------------------------------
+app.post('/api/deduplicate', async (req, res) => {
+  try {
+    // Delete duplicate app_log rows — keep only lowest id per (username,computer,date,app,start_time,window_title)
+    const r1 = await query(`
+      DELETE FROM app_log WHERE id NOT IN (
+        SELECT MIN(id) FROM app_log
+        GROUP BY username, computer, date, app, start_time, window_title
+      )
+    `);
+    // Delete duplicate raw_log rows — keep only lowest id per (username,computer,date,time,event)
+    const r2 = await query(`
+      DELETE FROM raw_log WHERE id NOT IN (
+        SELECT MIN(id) FROM raw_log
+        GROUP BY username, computer, date, time, event
+      )
+    `);
+    res.json({ status: 'ok', app_deleted: r1.rowCount||0, raw_deleted: r2.rowCount||0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/debug/latest', async (req, res) => {
   try {
     const today = todayIST();
