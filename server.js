@@ -515,7 +515,7 @@ async function getAllEmployeesToday() {
     else if (status === 'Idle') idle++;
     else offline++;
 
-    let activeS = 0, idleS = 0, workS = 0, commsS = 0, nonworkS = 0;
+    let idleS = 0, workS = 0, commsS = 0, nonworkS = 0;
     const appCtr = {};
     let lockCount = 0, unlockCount = 0, firstLock = '--', lastUnlock = '--';
     for (const r of todayRaw) {
@@ -523,11 +523,12 @@ async function getAllEmployeesToday() {
       if (ev === 'LOCK') { lockCount++; if (firstLock === '--') firstLock = r.time.slice(0,5); }
       if (ev === 'UNLOCK') { unlockCount++; lastUnlock = r.time.slice(0,5); }
     }
+    // Use mergeIntervals to avoid inflated active hours from duplicate agent instances
+    const activeS = mergeIntervals(appRows);
     for (const ar of appRows) {
       const dur = ar.duration_sec || 0;
       const st = (ar.state || 'active').toLowerCase();
       if (st === 'active') {
-        activeS += dur;
         appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
         const cat = classify(ar.app, ar.window_title);
         if (cat === 'work') workS += dur;
@@ -536,9 +537,10 @@ async function getAllEmployeesToday() {
       } else idleS += dur;
     }
     totalActive += activeS;
-    const workPct  = activeS ? Math.round(workS/activeS*100) : 0;
-    const commsPct = activeS ? Math.round(commsS/activeS*100) : 0;
-    const nonworkPct = activeS ? Math.round(nonworkS/activeS*100) : 0;
+    const _catTotal = workS + commsS + nonworkS;
+    const workPct  = _catTotal ? Math.round(workS/_catTotal*100) : 0;
+    const commsPct = _catTotal ? Math.round(commsS/_catTotal*100) : 0;
+    const nonworkPct = _catTotal ? Math.round(nonworkS/_catTotal*100) : 0;
     const top5 = Object.entries(appCtr).sort((a,b) => b[1]-a[1]).slice(0,5)
       .map(([app, dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur) }));
 
