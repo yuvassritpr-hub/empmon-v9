@@ -69,14 +69,17 @@ export default function Login({ onLogin }) {
             background:`linear-gradient(90deg, ${GOLD}, #e8c840, ${GOLD})` }}/>
 
           {/* Logo */}
-          <div style={{ display:'flex', justifyContent:'center', marginBottom: 16,
+          <div style={{ display:'flex', justifyContent:'center', marginBottom: 12,
             animation:'float 4s ease-in-out infinite' }}>
-            <img src="/logo.jpg" alt="Pride Global"
-              style={{ height: 64, width:'auto', filter:'brightness(0) invert(1)' }}/>
+            <div style={{ background:'#fff', borderRadius:12, padding:'10px 18px',
+              boxShadow:'0 4px 20px rgba(0,0,0,0.3)' }}>
+              <img src="/logo.jpg" alt="Pride Global"
+                style={{ height: 56, width:'auto', display:'block' }}/>
+            </div>
           </div>
 
           <div style={{ color:'#fff', fontSize: 11, letterSpacing: 3, fontWeight: 600,
-            textTransform:'uppercase', opacity: 0.8 }}>
+            textTransform:'uppercase', opacity: 0.8, marginTop: 8 }}>
             Employee Monitoring System
           </div>
         </div>
