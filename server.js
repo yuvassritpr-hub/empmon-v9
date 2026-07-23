@@ -429,6 +429,25 @@ app.post('/api/clear_all', async (req, res) => {
 });
 
 // -- DATA BUILDERS ---------------------------------------------
+function mergeIntervals(rows) {
+  const intervals = rows
+    .filter(r => (r.state||'active').toLowerCase() === 'active' && r.start_time)
+    .map(r => {
+      const s = r.start_time.slice(0,8);
+      const dur = r.duration_sec || 0;
+      const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+      return [startSec, startSec + dur];
+    })
+    .sort((a,b) => a[0]-b[0]);
+  let merged = 0, cur = null;
+  for (const [s,e] of intervals) {
+    if (!cur) { cur = [s,e]; continue; }
+    if (s <= cur[1]) { cur[1] = Math.max(cur[1], e); }
+    else { merged += cur[1]-cur[0]; cur = [s,e]; }
+  }
+  if (cur) merged += cur[1]-cur[0];
+  return merged;
+}
 const SOCIAL_DOMAINS = new Set([
   'instagram.com','facebook.com','twitter.com','x.com','tiktok.com',
   'snapchat.com','youtube.com','reddit.com','netflix.com','hotstar.com',
@@ -690,26 +709,6 @@ async function getEmployeeDetail(username, computer, forDate) {
     }
   }
 
-  // Merge overlapping active intervals to avoid double-counting from multiple agent instances
-  function mergeIntervals(rows) {
-    const intervals = rows
-      .filter(r => (r.state||'active').toLowerCase() === 'active' && r.start_time)
-      .map(r => {
-        const s = r.start_time.slice(0,8);
-        const dur = r.duration_sec || 0;
-        const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
-        return [startSec, startSec + dur];
-      })
-      .sort((a,b) => a[0]-b[0]);
-    let merged = 0, cur = null;
-    for (const [s,e] of intervals) {
-      if (!cur) { cur = [s,e]; continue; }
-      if (s <= cur[1]) { cur[1] = Math.max(cur[1], e); }
-      else { merged += cur[1]-cur[0]; cur = [s,e]; }
-    }
-    if (cur) merged += cur[1]-cur[0];
-    return merged;
-  }
   const activeS = mergeIntervals(appRows);
   let idleS = 0;
   const appCtr = {}, socialCtr = {};
