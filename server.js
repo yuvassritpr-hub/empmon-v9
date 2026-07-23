@@ -745,6 +745,25 @@ async function getEmployeeDetail(username, computer, forDate) {
 
   const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
     .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
+
+  // Teams meeting detection — window titles that are meetings (not chats/navigation)
+  const TEAMS_NON_MEETING = ['chat |','teams and channels','activity |','calendar |','files |','apps |','help |','search |','calls |','notifications','settings |','home |'];
+  const meetingCtr = {};
+  for (const ar of appRows) {
+    const appL = (ar.app||'').toLowerCase();
+    const title = (ar.window_title||'').trim();
+    const titleL = title.toLowerCase();
+    const isTeams = appL.includes('teams') || titleL.includes('microsoft teams');
+    if (!isTeams) continue;
+    const isNonMeeting = TEAMS_NON_MEETING.some(p => titleL.startsWith(p)) || titleL === 'microsoft teams' || titleL === '';
+    if (isNonMeeting) continue;
+    // Strip "| Microsoft Teams" suffix for display
+    const meetingName = title.replace(/\s*\|\s*Microsoft Teams\s*$/i, '').trim() || title;
+    meetingCtr[meetingName] = (meetingCtr[meetingName]||0) + (ar.duration_sec||0);
+  }
+  const teamsMeetings = Object.entries(meetingCtr).sort((a,b)=>b[1]-a[1])
+    .map(([name,secs]) => ({ name, dur: fmtSecs(secs), secs }));
+  const teamsMeetingTotal = teamsMeetings.reduce((a,m)=>a+m.secs,0);
   // Social from window titles / app names
   const socialFromTitles = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v), secs: v }));
   // Social from browser history domains (catches WhatsApp Web, Instagram Web, etc.)
@@ -877,6 +896,7 @@ async function getEmployeeDetail(username, computer, forDate) {
     topApps, workApps, commsApps, nonworkApps,
     workTitleList, commsTitleList, nonworkTitleList,
     socialAlerts, fileSharingSites, gmailList, topTabs, browserSites, diskInfo: diskRows,
+    teamsMeetings, teamsMeetingTotal: fmtSecs(teamsMeetingTotal),
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),

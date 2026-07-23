@@ -271,6 +271,34 @@ export default function EmployeeDetail() {
         </div>
       </div>
 
+      {/* Teams Meetings */}
+      {(data.teamsMeetings||[]).length > 0 && (
+        <div style={{background:'var(--card)',border:'1px solid #4A90D944',borderRadius:12,padding:20,marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14,flexWrap:'wrap'}}>
+            <span style={{fontSize:20}}>📹</span>
+            <span style={{fontWeight:700,color:'#4A90D9',fontSize:14}}>Teams Meetings Today</span>
+            <span style={{background:'#4A90D922',color:'#4A90D9',borderRadius:20,padding:'2px 10px',fontSize:12,fontWeight:700,border:'1px solid #4A90D944'}}>
+              Total: {data.teamsMeetingTotal}
+            </span>
+            <span style={{fontSize:11,color:'var(--text-dim)',marginLeft:4}}>
+              (counted in Active time — shown here for reference)
+            </span>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {(data.teamsMeetings||[]).map((m,i) => (
+              <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',
+                background:'#4A90D910',borderRadius:8,border:'1px solid #4A90D920'}}>
+                <span style={{fontSize:14}}>🎥</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
+                </div>
+                <span style={{fontSize:12,color:'#4A90D9',fontWeight:700,flexShrink:0}}>{m.dur}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Non-Work / Social */}
       {((data.nonworkTitleList||[]).length > 0 || (data.socialAlerts||[]).length > 0) && (
         <div style={{background:'var(--card)',border:'1px solid #f8514933',borderRadius:12,padding:20,marginBottom:20}}>
