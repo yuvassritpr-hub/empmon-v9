@@ -535,7 +535,7 @@ async function getAllEmployeesToday() {
     else if (status === 'Idle') idle++;
     else offline++;
 
-    let idleS = 0, workS = 0, commsS = 0, nonworkS = 0;
+    let workS = 0, commsS = 0, nonworkS = 0;
     const appCtr = {};
     let lockCount = 0, unlockCount = 0, firstLock = '--', lastUnlock = '--';
     for (const r of todayRaw) {
