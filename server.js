@@ -713,6 +713,32 @@ async function getEmployeeDetail(username, computer, forDate) {
 
   const activeS = mergeIntervals(appRows, 'active');
   const idleS = mergeIntervals(appRows, 'idle');
+
+  // Build merged idle periods (start time + duration) for display
+  const idlePeriods = (() => {
+    const intervals = appRows
+      .filter(r => (r.state||'active').toLowerCase() === 'idle' && r.start_time)
+      .map(r => {
+        const s = r.start_time.slice(0,8);
+        const dur = r.duration_sec || 0;
+        const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+        return { startSec, endSec: startSec + dur, label: r.start_time.slice(0,5) };
+      })
+      .sort((a,b) => a.startSec - b.startSec);
+    const merged = [];
+    let cur = null;
+    for (const iv of intervals) {
+      if (!cur) { cur = { ...iv }; continue; }
+      if (iv.startSec <= cur.endSec) { cur.endSec = Math.max(cur.endSec, iv.endSec); }
+      else { merged.push(cur); cur = { ...iv }; }
+    }
+    if (cur) merged.push(cur);
+    return merged.map(m => ({
+      from: `${String(Math.floor(m.startSec/3600)).padStart(2,'0')}:${String(Math.floor((m.startSec%3600)/60)).padStart(2,'0')}`,
+      to:   `${String(Math.floor(m.endSec/3600)).padStart(2,'0')}:${String(Math.floor((m.endSec%3600)/60)).padStart(2,'0')}`,
+      dur:  fmtSecs(m.endSec - m.startSec),
+    }));
+  })();
   const appCtr = {}, socialCtr = {};
   // workTitles[title] = { secs, app }, same for commsTitles, nonworkTitles
   const workTitles = {}, commsTitles = {}, nonworkTitles = {};
@@ -897,6 +923,7 @@ async function getEmployeeDetail(username, computer, forDate) {
     workTitleList, commsTitleList, nonworkTitleList,
     socialAlerts, fileSharingSites, gmailList, topTabs, browserSites, diskInfo: diskRows,
     teamsMeetings, teamsMeetingTotal: fmtSecs(teamsMeetingTotal),
+    idlePeriods,
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),

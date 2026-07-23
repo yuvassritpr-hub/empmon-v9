@@ -100,7 +100,7 @@ export default function EmployeeDetail() {
             {label:'Login',    value:data.firstLogin||'--',   color:'var(--green)'},
             {label:'Shutdown', value:data.lastShutdown||'--', color:'var(--red)'},
             {label:'Active',   value:data.activeToday,        color:'var(--accent)'},
-            {label:'Idle',     value:data.idleToday,          color:'var(--yellow)'},
+            {label:'Idle',     value:data.idleToday + ((data.idlePeriods||[]).length ? ` (${(data.idlePeriods||[]).length} period${(data.idlePeriods||[]).length>1?'s':''})` : ''),  color:'var(--yellow)'},
             {label:'Days/Month',value:`${data.daysWorked} days`,color:'var(--text)'},
             {label:'Month Active',value:data.monthActive,      color:'var(--purple)'},
           ].map(s=>(
@@ -111,6 +111,27 @@ export default function EmployeeDetail() {
           ))}
         </div>
       </div>
+
+      {/* Idle Periods */}
+      {(data.idlePeriods||[]).length > 0 && (
+        <div style={{background:'var(--card)',border:'1px solid #d2992244',borderRadius:12,padding:20,marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,flexWrap:'wrap'}}>
+            <span style={{fontSize:18}}>⏸</span>
+            <span style={{fontWeight:700,fontSize:13,color:'var(--yellow)'}}>Idle Periods Today</span>
+            <span style={{background:'#d2992222',color:'var(--yellow)',borderRadius:20,padding:'2px 10px',fontSize:12,fontWeight:700,border:'1px solid #d2992244'}}>
+              Total: {data.idleToday}
+            </span>
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {(data.idlePeriods||[]).map((p,i)=>(
+              <div key={i} style={{background:'#d2992215',border:'1px solid #d2992230',borderRadius:8,padding:'8px 14px',textAlign:'center'}}>
+                <div style={{fontSize:13,fontWeight:700,color:'var(--yellow)'}}>{p.from} – {p.to}</div>
+                <div style={{fontSize:11,color:'var(--text-dim)',marginTop:2}}>{p.dur}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Disk Storage */}
       {(data.diskInfo||[]).length > 0 && (
