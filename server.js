@@ -795,13 +795,13 @@ async function getEmployeeDetail(username, computer, forDate) {
     .map(([title,v]) => ({ title, app: friendlyName(v.app), dur: fmtSecs(v.secs), secs: v.secs, pct: Math.round(v.secs/totalActiveS*100) }));
 
   // Monthly stats
-  let monthActiveS = 0;
   const daysWorked = new Set();
   for (const ar of monthApp) {
-    if ((ar.state||'active').toLowerCase() === 'active') {
-      monthActiveS += ar.duration_sec || 0;
-      daysWorked.add(ar.date);
-    }
+    if ((ar.state||'active').toLowerCase() === 'active') daysWorked.add(ar.date);
+  }
+  let monthActiveS = 0;
+  for (const ds of daysWorked) {
+    monthActiveS += mergeIntervals(monthApp.filter(r => r.date === ds));
   }
 
   // Calendar (last 30 days) + IP history with ISP lookup
@@ -828,10 +828,10 @@ async function getEmployeeDetail(username, computer, forDate) {
     const d = new Date(nowIST()); d.setDate(d.getDate() - i);
     const ds = d.toISOString().slice(0,10);
     const dayAppRows = monthApp.filter(r => r.date === ds);
-    let dayActive = 0, dayIdle = 0;
+    const dayActive = mergeIntervals(dayAppRows);
+    let dayIdle = 0;
     for (const ar of dayAppRows) {
-      if ((ar.state||'active').toLowerCase() === 'active') dayActive += ar.duration_sec||0;
-      else dayIdle += ar.duration_sec||0;
+      if ((ar.state||'active').toLowerCase() !== 'active') dayIdle += ar.duration_sec||0;
     }
     const dayRaw = monthRaw.filter(r => r.date === ds);
     const login = dayRaw.find(r => r.event.toUpperCase().includes('LOGIN') && !r.event.toUpperCase().includes('LOGOUT'));
