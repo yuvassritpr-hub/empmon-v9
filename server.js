@@ -986,6 +986,16 @@ app.get('/api/alerts', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/debug/idle/:username/:computer', async (req, res) => {
+  try {
+    const today = todayIST();
+    const rows = await query(`SELECT state, start_time, duration_sec FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY start_time`, [req.params.username, req.params.computer, today]);
+    const idleRows = rows.filter(r => (r.state||'active').toLowerCase() === 'idle');
+    const merged = mergeIntervals(rows, 'idle');
+    res.json({ total_idle_rows: idleRows.length, merged_idle_secs: merged, idle_rows: idleRows.slice(0,50) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // -- SERVE REACT -----------------------------------------------
 const clientBuild = path.join(__dirname, 'client', 'dist');
 app.use(express.static(clientBuild));
