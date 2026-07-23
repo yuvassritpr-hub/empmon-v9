@@ -997,6 +997,8 @@ app.get('/api/debug/idle/:username/:computer', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/version', (req, res) => res.json({ version: 'v9.1-idle-fix', ts: Date.now() }));
+
 // -- SERVE REACT -----------------------------------------------
 const clientBuild = path.join(__dirname, 'client', 'dist');
 app.use(express.static(clientBuild));
