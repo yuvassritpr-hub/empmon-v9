@@ -429,9 +429,9 @@ app.post('/api/clear_all', async (req, res) => {
 });
 
 // -- DATA BUILDERS ---------------------------------------------
-function mergeIntervals(rows) {
+function mergeIntervals(rows, stateFilter = 'active') {
   const intervals = rows
-    .filter(r => (r.state||'active').toLowerCase() === 'active' && r.start_time)
+    .filter(r => (r.state||'active').toLowerCase() === stateFilter && r.start_time)
     .map(r => {
       const s = r.start_time.slice(0,8);
       const dur = r.duration_sec || 0;
@@ -542,8 +542,9 @@ async function getAllEmployeesToday() {
       if (ev === 'LOCK') { lockCount++; if (firstLock === '--') firstLock = r.time.slice(0,5); }
       if (ev === 'UNLOCK') { unlockCount++; lastUnlock = r.time.slice(0,5); }
     }
-    // Use mergeIntervals to avoid inflated active hours from duplicate agent instances
-    const activeS = mergeIntervals(appRows);
+    // Use mergeIntervals to avoid inflated times from duplicate agent instances
+    const activeS = mergeIntervals(appRows, 'active');
+    const idleS = mergeIntervals(appRows, 'idle');
     for (const ar of appRows) {
       const dur = ar.duration_sec || 0;
       const st = (ar.state || 'active').toLowerCase();
@@ -553,7 +554,7 @@ async function getAllEmployeesToday() {
         if (cat === 'work') workS += dur;
         else if (cat === 'comms') commsS += dur;
         else nonworkS += dur;
-      } else idleS += dur;
+      }
     }
     totalActive += activeS;
     const _catTotal = workS + commsS + nonworkS;
@@ -709,8 +710,8 @@ async function getEmployeeDetail(username, computer, forDate) {
     }
   }
 
-  const activeS = mergeIntervals(appRows);
-  let idleS = 0;
+  const activeS = mergeIntervals(appRows, 'active');
+  const idleS = mergeIntervals(appRows, 'idle');
   const appCtr = {}, socialCtr = {};
   // workTitles[title] = { secs, app }, same for commsTitles, nonworkTitles
   const workTitles = {}, commsTitles = {}, nonworkTitles = {};
@@ -738,7 +739,7 @@ async function getEmployeeDetail(username, computer, forDate) {
           socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
         }
       }
-    } else idleS += dur;
+    }
   }
 
   const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
