@@ -406,6 +406,19 @@ app.get('/api/summary', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/delete_employee', async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'username required' });
+    await query('DELETE FROM raw_log WHERE username=$1', [username]);
+    await query('DELETE FROM app_log WHERE username=$1', [username]);
+    await query('DELETE FROM browser_log WHERE username=$1', [username]);
+    await query('DELETE FROM vpn_log WHERE username=$1', [username]);
+    await query('DELETE FROM disk_log WHERE username=$1', [username]);
+    res.json({ status: 'ok', deleted: username });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/clear_all', async (req, res) => {
   try {
     await query('DELETE FROM raw_log');
