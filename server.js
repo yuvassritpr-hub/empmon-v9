@@ -431,8 +431,7 @@ app.post('/api/clear_all', async (req, res) => {
 
 // -- KNOWN IP → LOCATION MAPPING (add office IPs here) --------
 const KNOWN_IPS = {
-  '106.51.182.212': 'Pride Global Office, Chennai',
-  // Add more: '103.x.x.x': 'Pride Global Branch, Mumbai',
+  // Add office IPs here once confirmed: '103.x.x.x': 'Pride Global Office, Chennai',
 };
 
 function resolveLocation(ips = []) {
