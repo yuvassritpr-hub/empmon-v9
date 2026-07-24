@@ -94,6 +94,12 @@ async function initDB() {
       username TEXT NOT NULL, computer TEXT NOT NULL,
       domain TEXT NOT NULL, secs INTEGER DEFAULT 0, received_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS wifi_log (
+      id SERIAL PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      ssid TEXT DEFAULT '', received_at TEXT NOT NULL,
+      UNIQUE(date, username, computer, ssid)
+    );
   `;
   const indexes = [
     "CREATE INDEX IF NOT EXISTS idx_raw_date ON raw_log(date, username)",
@@ -241,6 +247,13 @@ app.post('/api/heartbeat', async (req, res) => {
           [today, now, d.username, d.computer||'N/A', disk.drive||'C:',
            disk.total_gb||0, disk.used_gb||0, disk.free_gb||0, disk.pct_used||0, receivedAt]);
       }
+    }
+    // Store WiFi SSID if provided
+    if (d.wifi_ssid !== undefined) {
+      await query(`INSERT INTO wifi_log (date, time, username, computer, ssid, received_at)
+        VALUES ($1,$2,$3,$4,$5,$6)
+        ON CONFLICT DO NOTHING`,
+        [today, now, d.username, d.computer||'N/A', d.wifi_ssid||'', receivedAt]);
     }
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
@@ -667,6 +680,7 @@ async function getEmployeeDetail(username, computer, forDate) {
   // Deduplicate app_log: if multiple agents running, same app+start_time gets sent multiple times — take one row per app+start_time
   const appRows = await query(`SELECT DISTINCT ON (app, start_time, window_title) * FROM app_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY app, start_time, window_title, id DESC`, [username, computer, today]);
   const diskRows = await query(`SELECT drive, MAX(total_gb) as total_gb, MAX(used_gb) as used_gb, MAX(free_gb) as free_gb, MAX(pct_used) as pct_used FROM disk_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY drive ORDER BY drive`, [username, computer, today]);
+  const wifiRows = await query(`SELECT DISTINCT ssid FROM wifi_log WHERE username=$1 AND computer=$2 AND date=$3 AND ssid != '' ORDER BY ssid`, [username, computer, today]);
   const browserLogSites = await query(`SELECT domain, MAX(secs) as secs FROM browser_log WHERE username=$1 AND computer=$2 AND date=$3 GROUP BY domain ORDER BY secs DESC LIMIT 15`, [username, computer, today]);
 
   // Also extract domains from browser window titles in app_log (fallback for open tabs)
@@ -946,6 +960,7 @@ async function getEmployeeDetail(username, computer, forDate) {
     socialAlerts, fileSharingSites, gmailList, topTabs, browserSites, diskInfo: diskRows,
     teamsMeetings, teamsMeetingTotal: fmtSecs(teamsMeetingTotal),
     idlePeriods,
+    wifiToday: wifiRows.map(r => r.ssid),
     daysWorked: daysWorked.size,
     monthActive: fmtSecs(monthActiveS),
     monthActiveDec: fmtDec(monthActiveS),

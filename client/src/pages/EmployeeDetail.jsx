@@ -92,7 +92,21 @@ export default function EmployeeDetail() {
         }}>{username.slice(0,2).toUpperCase()}</div>
         <div>
           <h2 style={{fontSize:20,fontWeight:700}}>{username}</h2>
-          <div style={{fontSize:13,color:'var(--text-dim)'}}>{computer} · {data.location} · {data.ip}</div>
+          <div style={{fontSize:13,color:'var(--text-dim)'}}>
+            {computer} · {data.location} · {data.ip}
+            {(data.wifiToday||[]).length > 0 && (
+              <span style={{marginLeft:10,background:'#3fb95022',color:'var(--green)',
+                border:'1px solid #3fb95044',borderRadius:6,padding:'1px 8px',fontSize:11,fontWeight:600}}>
+                📶 {data.wifiToday.join(' / ')}
+              </span>
+            )}
+            {(data.wifiToday||[]).length === 0 && (
+              <span style={{marginLeft:10,background:'#4A90D922',color:'#4A90D9',
+                border:'1px solid #4A90D944',borderRadius:6,padding:'1px 8px',fontSize:11,fontWeight:600}}>
+                🔌 Ethernet / No WiFi data yet
+              </span>
+            )}
+          </div>
           <div style={{fontSize:12,color:'var(--text-dim)',marginTop:2}}>Serial: {data.serial}</div>
         </div>
         <div style={{marginLeft:'auto',display:'flex',gap:24,flexWrap:'wrap'}}>
