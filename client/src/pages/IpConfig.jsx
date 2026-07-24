@@ -5,14 +5,10 @@ const GREEN  = '#1a7f4b'
 const RED    = '#c0392b'
 const GOLD   = '#B8960C'
 
-const COUNTRIES = [
-  'India','Kenya','Ghana','Cameroon','UAE (Dubai)','Singapore',
-  'Nigeria','South Africa','UK','USA','Other'
-]
 
 export default function IpConfig() {
   const [configs, setConfigs] = useState([])
-  const [form, setForm] = useState({ ip_prefix:'', location_name:'', country:'India', is_office:true })
+  const [form, setForm] = useState({ ip_prefix:'', location_name:'', country:'', is_office:true })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -62,7 +58,7 @@ export default function IpConfig() {
       <div style={{ background:'#fff', borderRadius:14, boxShadow:'0 2px 16px rgba(74,21,80,0.08)', padding:24, marginBottom:24 }}>
         <div style={{ fontWeight:700, color:PURPLE, marginBottom:16, fontSize:15 }}>➕ Add Office IP</div>
         <form onSubmit={save}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 160px 140px auto', gap:12, alignItems:'end', flexWrap:'wrap' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 140px auto', gap:12, alignItems:'end', flexWrap:'wrap' }}>
 
             <div>
               <label style={{ fontSize:11, fontWeight:700, color:PURPLE, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>IP Address / Prefix</label>
@@ -77,14 +73,6 @@ export default function IpConfig() {
               <input value={form.location_name} onChange={e=>setForm({...form,location_name:e.target.value})}
                 placeholder="e.g. Pride Global Mumbai"
                 style={{ width:'100%', padding:'10px 12px', border:`2px solid #e8e0f0`, borderRadius:8, fontSize:13, boxSizing:'border-box' }}/>
-            </div>
-
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:PURPLE, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:0.5 }}>Country</label>
-              <select value={form.country} onChange={e=>setForm({...form,country:e.target.value})}
-                style={{ width:'100%', padding:'10px 12px', border:`2px solid #e8e0f0`, borderRadius:8, fontSize:13, boxSizing:'border-box' }}>
-                {COUNTRIES.map(c=><option key={c}>{c}</option>)}
-              </select>
             </div>
 
             <div>
@@ -120,7 +108,7 @@ export default function IpConfig() {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
               <tr style={{ borderBottom:`2px solid #f0eaf5` }}>
-                {['IP / Prefix','Location Name','Country','Type','Action'].map(h=>(
+                {['IP / Prefix','Location / Address','Type','Action'].map(h=>(
                   <th key={h} style={{ textAlign:'left', padding:'10px 16px', color:'#888', fontWeight:600, fontSize:11, textTransform:'uppercase' }}>{h}</th>
                 ))}
               </tr>
@@ -130,7 +118,6 @@ export default function IpConfig() {
                 <tr key={c.id} style={{ borderBottom:`1px solid #f0eaf5`, background: i%2===0 ? '#fff' : '#faf8fc' }}>
                   <td style={{ padding:'12px 16px', fontFamily:'monospace', fontWeight:700, color:PURPLE }}>{c.ip_prefix}</td>
                   <td style={{ padding:'12px 16px', fontWeight:600 }}>{c.location_name}</td>
-                  <td style={{ padding:'12px 16px', color:'#666' }}>{c.country||'—'}</td>
                   <td style={{ padding:'12px 16px' }}>
                     <span style={{
                       background: c.is_office ? '#1a7f4b22' : '#fb850022',
