@@ -100,6 +100,14 @@ async function initDB() {
       ssid TEXT DEFAULT '', received_at TEXT NOT NULL,
       UNIQUE(date, username, computer, ssid)
     );
+    CREATE TABLE IF NOT EXISTS ip_config (
+      id SERIAL PRIMARY KEY,
+      ip_prefix TEXT NOT NULL UNIQUE,
+      location_name TEXT NOT NULL,
+      is_office BOOLEAN DEFAULT true,
+      country TEXT DEFAULT '',
+      created_at TEXT DEFAULT ''
+    );
   `;
   const indexes = [
     "CREATE INDEX IF NOT EXISTS idx_raw_date ON raw_log(date, username)",
@@ -442,25 +450,57 @@ app.post('/api/clear_all', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// -- KNOWN IP → LOCATION MAPPING (add office IPs here) --------
-const KNOWN_IPS = {
-  // Add office IPs here once confirmed: '103.x.x.x': 'Pride Global Office, Chennai',
-};
-
-function resolveLocation(ips = []) {
-  // Priority 1: known office IP
-  for (const entry of ips) {
-    if (KNOWN_IPS[entry.ip]) return { location: KNOWN_IPS[entry.ip], reliable: true };
+// -- IP CONFIG: loaded from DB at startup, refreshed on change --
+let ipConfigCache = [];
+async function loadIpConfig() {
+  try { ipConfigCache = await query(`SELECT * FROM ip_config ORDER BY length(ip_prefix) DESC`); } catch {}
+}
+function resolveLocationFromConfig(ip) {
+  for (const cfg of ipConfigCache) {
+    if (ip === cfg.ip_prefix || ip.startsWith(cfg.ip_prefix)) {
+      return { location: cfg.location_name, is_office: cfg.is_office, country: cfg.country };
+    }
   }
-  // Priority 2: broadband IP (not GPRS/mobile)
+  return null;
+}
+function resolveLocation(ips = []) {
+  // Priority 1: DB ip_config match (exact or prefix)
+  for (const entry of ips) {
+    const cfg = resolveLocationFromConfig(entry.ip);
+    if (cfg) return { location: cfg.location + (cfg.country ? ', ' + cfg.country : ''), reliable: true, is_office: cfg.is_office };
+  }
+  // Priority 2: broadband IP
   const broadband = ips.find(e => e.type === 'broadband');
   if (broadband && broadband.city) return { location: broadband.city + (broadband.country ? ', ' + broadband.country : ''), reliable: true };
   // Priority 3: mobile IP
   const mobile = ips.find(e => e.type === 'mobile');
   if (mobile && mobile.city) return { location: mobile.city + ' (mobile)', reliable: false };
-  // GPRS — don't trust city
-  return { location: 'Location unavailable (mobile data)', reliable: false };
+  return { location: 'Location unavailable', reliable: false };
 }
+
+// -- IP CONFIG API endpoints ------------------------------------
+app.get('/api/ipconfig', async (req, res) => {
+  try { res.json(await query(`SELECT * FROM ip_config ORDER BY id`)); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/ipconfig', async (req, res) => {
+  try {
+    const { ip_prefix, location_name, is_office, country } = req.body;
+    if (!ip_prefix || !location_name) return res.status(400).json({ error: 'ip_prefix and location_name required' });
+    await query(`INSERT INTO ip_config (ip_prefix, location_name, is_office, country, created_at)
+      VALUES ($1,$2,$3,$4,$5) ON CONFLICT (ip_prefix) DO UPDATE SET location_name=$2, is_office=$3, country=$4`,
+      [ip_prefix.trim(), location_name.trim(), is_office !== false, (country||'').trim(), new Date().toISOString()]);
+    await loadIpConfig();
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/ipconfig/:id', async (req, res) => {
+  try {
+    await query(`DELETE FROM ip_config WHERE id=$1`, [req.params.id]);
+    await loadIpConfig();
+    res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // -- DATA BUILDERS ---------------------------------------------
 function mergeIntervals(rows, stateFilter = 'active') {
@@ -1096,6 +1136,7 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-initDB().then(() => {
+initDB().then(async () => {
+  await loadIpConfig();
   app.listen(PORT, () => console.log(`[Server] EmpMon V9 running on port ${PORT}`));
 }).catch(e => { console.error('[DB] Init failed:', e.message || String(e)); process.exit(1); });

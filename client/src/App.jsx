@@ -4,12 +4,14 @@ import Dashboard from './pages/Dashboard.jsx'
 import EmployeeDetail from './pages/EmployeeDetail.jsx'
 import DailyTimeline from './pages/DailyTimeline.jsx'
 import SocialAlerts from './pages/SocialAlerts.jsx'
+import IpConfig from './pages/IpConfig.jsx'
 import Login from './pages/Login.jsx'
 
 const NAV = [
-  { to: '/',       icon: '⊞', label: 'Dashboard'     },
-  { to: '/daily',  icon: '⏱', label: 'Daily Timeline' },
-  { to: '/alerts', icon: '⚠', label: 'Social Alerts'  },
+  { to: '/',        icon: '⊞', label: 'Dashboard'     },
+  { to: '/daily',   icon: '⏱', label: 'Daily Timeline' },
+  { to: '/alerts',  icon: '⚠', label: 'Social Alerts'  },
+  { to: '/ipconfig',icon: '🌍', label: 'IP Locations'   },
 ]
 
 function PrideGlobalLogo() {
@@ -82,6 +84,7 @@ export default function App() {
             <Route path="/employee/:username/:computer" element={<EmployeeDetail />} />
             <Route path="/daily" element={<DailyTimeline />} />
             <Route path="/alerts" element={<SocialAlerts />} />
+            <Route path="/ipconfig" element={<IpConfig />} />
           </Routes>
         </main>
       </div>
