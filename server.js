@@ -983,7 +983,7 @@ async function getEmployeeDetail(username, computer, forDate) {
       login: login ? login.time.slice(0,5) : '--',
       logout: logout ? logout.time.slice(0,5) : '--',
       worked: dayActive > 0,
-      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||''), known: KNOWN_IPS[ip]||'' })) : [],
+      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => { const cfg = resolveLocationFromConfig(ip); return { ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||''), known: cfg ? cfg.location : '' }; }) : [],
       location: (() => { const ips = ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||'') })) : []; const r = resolveLocation(ips); return r.location; })(),
     });
   }
