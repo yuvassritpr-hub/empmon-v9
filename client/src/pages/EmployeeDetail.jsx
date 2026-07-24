@@ -452,18 +452,28 @@ export default function EmployeeDetail() {
                     <td style={{padding:'6px 12px'}}>
                       {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.type||'broadband'))].map((t,i)=>(
                         <span key={i} style={{
-                          display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:600,
-                          background: t==='mobile' ? '#fb850022' : '#3fb95022',
-                          color: t==='mobile' ? 'var(--orange)' : 'var(--green)',
-                          border: t==='mobile' ? '1px solid #fb850044' : '1px solid #3fb95044',
-                        }}>{t==='mobile' ? '📱 Mobile' : '🏢 Broadband'}</span>
+                          display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:600,marginRight:3,
+                          background: t==='gprs' ? '#a371f722' : t==='mobile' ? '#fb850022' : '#3fb95022',
+                          color: t==='gprs' ? '#a371f7' : t==='mobile' ? 'var(--orange)' : 'var(--green)',
+                          border: t==='gprs' ? '1px solid #a371f744' : t==='mobile' ? '1px solid #fb850044' : '1px solid #3fb95044',
+                        }}>{t==='gprs' ? '📡 GPRS' : t==='mobile' ? '📱 Mobile' : '🏢 Broadband'}</span>
                       )) : '—'}
                     </td>
                     <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
                       {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.isp||'').filter(Boolean))].join(', ')||'—' : '—'}
                     </td>
                     <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
-                      {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.city||'').filter(Boolean))].join(', ')||d.location||'—' : d.location||'—'}
+                      {d.ips?.length>0 ? d.ips.map((e,i)=>(
+                        <span key={i}>
+                          {e.type==='gprs'
+                            ? <span title="GPRS IPs show ISP node location, not actual user location" style={{color:'#a371f7'}}>
+                                {e.city||'?'} ⚠️
+                              </span>
+                            : <span>{e.city||''}</span>
+                          }
+                          {i < d.ips.length-1 ? ', ' : ''}
+                        </span>
+                      )) : d.location||'—'}
                     </td>
                   </tr>
                 ))}

@@ -880,8 +880,10 @@ async function getEmployeeDetail(username, computer, forDate) {
   const ipInfoMap = {};
   await Promise.all([...allIps].map(async ip => { ipInfoMap[ip] = await getIpInfo(ip); }));
   const MOBILE_ISP_KEYS = ['jio','vodafone','idea','vi mobile','airtel mobile','bsnl mobile','tata docomo','reliance mobile','uninor','telenor'];
+  const GPRS_KEYS = ['gprs','as for gprs','mobile broadband','3g','4g lte','cellular'];
   function detectConnectionType(org='') {
     const o = org.toLowerCase();
+    if (GPRS_KEYS.some(k => o.includes(k))) return 'gprs';
     if (MOBILE_ISP_KEYS.some(k => o.includes(k))) return 'mobile';
     return 'broadband';
   }
