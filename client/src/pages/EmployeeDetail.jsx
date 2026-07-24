@@ -462,18 +462,20 @@ export default function EmployeeDetail() {
                     <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
                       {d.ips?.length>0 ? [...new Set(d.ips.map(e=>e.isp||'').filter(Boolean))].join(', ')||'—' : '—'}
                     </td>
-                    <td style={{padding:'6px 12px',color:'var(--text-dim)'}}>
-                      {d.ips?.length>0 ? d.ips.map((e,i)=>(
-                        <span key={i}>
-                          {e.type==='gprs'
-                            ? <span title="GPRS IPs show ISP node location, not actual user location" style={{color:'#a371f7'}}>
-                                {e.city||'?'} ⚠️
-                              </span>
-                            : <span>{e.city||''}</span>
-                          }
-                          {i < d.ips.length-1 ? ', ' : ''}
-                        </span>
-                      )) : d.location||'—'}
+                    <td style={{padding:'6px 12px'}}>
+                      {d.ips?.length>0 ? (() => {
+                        // Show known office IP first
+                        const known = d.ips.find(e=>e.known);
+                        if (known) return <span style={{color:'var(--green)',fontWeight:600}}>🏢 {known.known}</span>;
+                        // Show broadband location
+                        const bb = d.ips.find(e=>e.type==='broadband' && e.city);
+                        if (bb) return <span style={{color:'var(--text)'}}>{bb.city}</span>;
+                        // Mobile — show with note
+                        const mob = d.ips.find(e=>e.type==='mobile' && e.city);
+                        if (mob) return <span style={{color:'var(--orange)'}}>📱 {mob.city}</span>;
+                        // GPRS only — unreliable
+                        return <span style={{color:'#a371f7'}} title="GPRS location unreliable — shows ISP node, not actual user location">⚠️ Location unavailable</span>;
+                      })() : <span style={{color:'var(--text-dim)'}}>—</span>}
                     </td>
                   </tr>
                 ))}

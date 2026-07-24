@@ -429,6 +429,27 @@ app.post('/api/clear_all', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// -- KNOWN IP → LOCATION MAPPING (add office IPs here) --------
+const KNOWN_IPS = {
+  '106.51.182.212': 'Pride Global Office, Chennai',
+  // Add more: '103.x.x.x': 'Pride Global Branch, Mumbai',
+};
+
+function resolveLocation(ips = []) {
+  // Priority 1: known office IP
+  for (const entry of ips) {
+    if (KNOWN_IPS[entry.ip]) return { location: KNOWN_IPS[entry.ip], reliable: true };
+  }
+  // Priority 2: broadband IP (not GPRS/mobile)
+  const broadband = ips.find(e => e.type === 'broadband');
+  if (broadband && broadband.city) return { location: broadband.city + (broadband.country ? ', ' + broadband.country : ''), reliable: true };
+  // Priority 3: mobile IP
+  const mobile = ips.find(e => e.type === 'mobile');
+  if (mobile && mobile.city) return { location: mobile.city + ' (mobile)', reliable: false };
+  // GPRS — don't trust city
+  return { location: 'Location unavailable (mobile data)', reliable: false };
+}
+
 // -- DATA BUILDERS ---------------------------------------------
 function mergeIntervals(rows, stateFilter = 'active') {
   const intervals = rows
@@ -909,8 +930,8 @@ async function getEmployeeDetail(username, computer, forDate) {
       login: login ? login.time.slice(0,5) : '--',
       logout: logout ? logout.time.slice(0,5) : '--',
       worked: dayActive > 0,
-      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||'') })) : [],
-      location: dayLocation ? `${dayLocation.city}, ${dayLocation.region||''}`.replace(/,\s*$/,'') : '',
+      ips: ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||''), known: KNOWN_IPS[ip]||'' })) : [],
+      location: (() => { const ips = ipHistory[ds] ? [...ipHistory[ds]].map(ip => ({ ip, isp: ipInfoMap[ip]?.org||'', city: ipInfoMap[ip]?.city||'', country: ipInfoMap[ip]?.country||'', type: detectConnectionType(ipInfoMap[ip]?.org||'') })) : []; const r = resolveLocation(ips); return r.location; })(),
     });
   }
 
