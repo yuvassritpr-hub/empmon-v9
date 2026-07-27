@@ -785,12 +785,24 @@ async function getEmployeeDetail(username, computer, forDate) {
     }
   }
 
-  const activeS = mergeIntervals(appRows, 'active');
-  const idleS = mergeIntervals(appRows, 'idle');
+  // Filter rows to only count activity after first login (prevents overnight idle inflation)
+  const loginSec = firstLogin !== '--'
+    ? parseInt(firstLogin.slice(0,2))*3600 + parseInt(firstLogin.slice(3,5))*60
+    : 0;
+  const sessionAppRows = loginSec > 0
+    ? appRows.filter(r => {
+        const s = (r.start_time||'').slice(0,8);
+        const rowSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt((s.slice(6,8)||'0'));
+        return rowSec >= loginSec - 120;
+      })
+    : appRows;
+
+  const activeS = mergeIntervals(sessionAppRows, 'active');
+  const idleS = mergeIntervals(sessionAppRows, 'idle');
 
   // Build merged idle periods (start time + duration) for display
   const idlePeriods = (() => {
-    const intervals = appRows
+    const intervals = sessionAppRows
       .filter(r => (r.state||'active').toLowerCase() === 'idle' && r.start_time)
       .map(r => {
         const s = r.start_time.slice(0,8);
