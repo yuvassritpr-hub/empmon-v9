@@ -454,10 +454,23 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
       }
       const meetings = Object.entries(meetingCtr).map(([n,s])=>`${n} (${fmtSecs(s)})`).join('; ') || 'None';
 
+      // IP and location for the day
+      const dayIps = [...new Set(dayRaw.filter(r=>r.ip&&r.ip.includes('.')).map(r=>r.ip))];
+      const dayIpStr = dayIps.join(', ') || '--';
+      const dayLocations = dayIps.map(ip => {
+        const cfg = resolveLocationFromConfig(ip);
+        if (cfg) return cfg.location;
+        const raw = dayRaw.find(r=>r.ip===ip);
+        return (raw?.city && raw.city !== 'N/A') ? `${raw.city}${raw.region ? ', '+raw.region : ''}` : '';
+      }).filter(Boolean);
+      const dayLocStr = [...new Set(dayLocations)].join(', ') || '--';
+
       report.push({
         'Date': day,
         'Login Time': login,
         'Shutdown Time': shutdown,
+        'IP Address': dayIpStr,
+        'Location': dayLocStr,
         'Active Time': fmtSecs(activeS),
         'Idle Time': fmtSecs(idleS),
         'Top Applications': topApps,
@@ -479,6 +492,8 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
       'Date': 'TOTAL',
       'Login Time': '',
       'Shutdown Time': '',
+      'IP Address': '',
+      'Location': '',
       'Active Time': fmtSecs(totalActive),
       'Idle Time': fmtSecs(totalIdle),
       'Top Applications': `${days.length} days worked`,
@@ -493,7 +508,7 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
     });
 
     const ws = XLSX.utils.json_to_sheet(report);
-    ws['!cols'] = [14,12,12,14,14,45,40,10,40,10,10,35,30,50].map(w=>({wch:w}));
+    ws['!cols'] = [14,12,12,18,28,14,14,45,40,10,40,10,10,35,30,50].map(w=>({wch:w}));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${username} ${m}`);
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
