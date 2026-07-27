@@ -74,8 +74,17 @@ export default function EmployeeDetail() {
 
   return (
     <div style={{padding:24}}>
-      <div style={{marginBottom:20}}>
+      <div style={{marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <Link to="/" style={{fontSize:13,color:'var(--text-dim)'}}>← Dashboard</Link>
+        <button
+          onClick={() => {
+            const m = new Date().toISOString().slice(0,7)
+            window.open(`/api/report/excel/employee/${username}/${computer}?month=${m}`, '_blank')
+          }}
+          style={{background:'#1a7f4b',color:'#fff',border:'none',borderRadius:8,
+            padding:'7px 16px',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+          📥 Export Excel (This Month)
+        </button>
       </div>
 
       {/* Profile header */}

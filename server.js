@@ -383,6 +383,87 @@ app.get('/api/report/excel', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Per-employee detailed Excel export (day-by-day breakdown)
+app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
+  try {
+    const { username, computer } = req.params;
+    const m = req.query.month || todayIST().slice(0, 7);
+    const appRows = await query(`SELECT * FROM app_log WHERE username=$1 AND computer=$2 AND date LIKE $3 ORDER BY date, start_time`, [username, computer, `${m}%`]);
+    const rawRows = await query(`SELECT * FROM raw_log WHERE username=$1 AND computer=$2 AND date LIKE $3 ORDER BY date, time`, [username, computer, `${m}%`]);
+
+    const days = [...new Set(appRows.map(r => r.date))].sort();
+    const report = [];
+
+    for (const day of days) {
+      const dayApp = appRows.filter(r => r.date === day);
+      const dayRaw = rawRows.filter(r => r.date === day);
+
+      let login = '--', shutdown = '--';
+      for (const r of dayRaw) {
+        const ev = r.event.toUpperCase();
+        if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && login === '--') login = r.time;
+        if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) shutdown = r.time;
+      }
+      if (login === '--' && dayApp.length > 0) login = dayApp[0].start_time?.slice(0,8) || '--';
+
+      const activeS = mergeIntervals(dayApp, 'active');
+      const idleS = mergeIntervals(dayApp, 'idle');
+
+      const appCtr = {};
+      for (const ar of dayApp) {
+        if ((ar.state||'active').toLowerCase() !== 'active') continue;
+        appCtr[ar.app] = (appCtr[ar.app]||0) + (ar.duration_sec||0);
+      }
+      const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+        .map(([a,s])=>`${friendlyName(a)} (${fmtSecs(s)})`).join(', ');
+
+      // Teams meetings
+      const meetingCtr = {};
+      for (const ar of dayApp) {
+        const appL = (ar.app||'').toLowerCase();
+        const titleL = (ar.window_title||'').toLowerCase();
+        if (!appL.includes('teams') && !titleL.includes('microsoft teams')) continue;
+        const TEAMS_NON_MEETING = ['chat |','teams and channels','activity |','calendar |','files |','apps |','help |','search |','calls |','notifications','settings |','home |'];
+        if (TEAMS_NON_MEETING.some(p=>titleL.startsWith(p)) || titleL === 'microsoft teams' || titleL === '') continue;
+        const name = (ar.window_title||'').replace(/\s*\|\s*Microsoft Teams\s*$/i,'').trim();
+        meetingCtr[name] = (meetingCtr[name]||0) + (ar.duration_sec||0);
+      }
+      const meetings = Object.entries(meetingCtr).map(([n,s])=>`${n} (${fmtSecs(s)})`).join('; ') || 'None';
+
+      report.push({
+        'Date': day,
+        'Login Time': login,
+        'Shutdown Time': shutdown,
+        'Active Time': fmtSecs(activeS),
+        'Idle Time': fmtSecs(idleS),
+        'Top Applications': topApps,
+        'Teams Meetings': meetings,
+      });
+    }
+
+    // Summary row
+    const totalActive = days.reduce((s, day) => s + mergeIntervals(appRows.filter(r=>r.date===day), 'active'), 0);
+    report.push({
+      'Date': 'TOTAL',
+      'Login Time': '',
+      'Shutdown Time': '',
+      'Active Time': fmtSecs(totalActive),
+      'Idle Time': '',
+      'Top Applications': `${days.length} days worked`,
+      'Teams Meetings': '',
+    });
+
+    const ws = XLSX.utils.json_to_sheet(report);
+    ws['!cols'] = [14,12,12,14,14,50,50].map(w=>({wch:w}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${username} ${m}`);
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', `attachment; filename="${username}_${m}_detail.xlsx"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/report/pdf', async (req, res) => {
   try {
     const { report, month } = await buildMonthlyReport(req.query.month);
