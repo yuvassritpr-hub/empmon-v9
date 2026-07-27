@@ -947,9 +947,41 @@ async function getEmployeeDetail(username, computer, forDate) {
     : appRows;
 
   const activeS = mergeIntervals(sessionAppRows, 'active');
-  const idleS = mergeIntervals(sessionAppRows, 'idle');
 
-  // Build merged idle periods (start time + duration) for display
+  // Compute Teams meeting spans early so we can exclude them from idle
+  const _TEAMS_NON_MEETING = ['chat |','teams and channels','activity |','calendar |','files |','apps |','help |','search |','calls |','notifications','settings |','home |'];
+  const _meetingSpans = {};
+  for (const ar of appRows) {
+    const appL = (ar.app||'').toLowerCase();
+    const title = (ar.window_title||'').trim();
+    const titleL = title.toLowerCase();
+    if (!appL.includes('teams') && !titleL.includes('microsoft teams')) continue;
+    if (_TEAMS_NON_MEETING.some(p=>titleL.startsWith(p)) || titleL === 'microsoft teams' || titleL === '') continue;
+    const meetingName = title.replace(/\s*\|\s*Microsoft Teams\s*$/i,'').trim() || title;
+    const s = (ar.start_time||'').slice(0,8);
+    const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+    const endSec = startSec + (ar.duration_sec||0);
+    if (!_meetingSpans[meetingName]) _meetingSpans[meetingName] = { firstSec: startSec, lastSec: endSec };
+    else { _meetingSpans[meetingName].firstSec = Math.min(_meetingSpans[meetingName].firstSec, startSec); _meetingSpans[meetingName].lastSec = Math.max(_meetingSpans[meetingName].lastSec, endSec); }
+  }
+  const meetingIntervals = Object.values(_meetingSpans).map(m => [m.firstSec, m.lastSec]);
+
+  // Helper: subtract meeting intervals from an idle interval, returns remaining pieces
+  function subtractMeetings(startSec, endSec) {
+    let pieces = [[startSec, endSec]];
+    for (const [ms, me] of meetingIntervals) {
+      const next = [];
+      for (const [ps, pe] of pieces) {
+        if (me <= ps || ms >= pe) { next.push([ps, pe]); continue; }
+        if (ms > ps) next.push([ps, ms]);
+        if (me < pe) next.push([me, pe]);
+      }
+      pieces = next;
+    }
+    return pieces;
+  }
+
+  // Build merged idle periods, excluding time covered by Teams meetings
   const idlePeriods = (() => {
     const intervals = sessionAppRows
       .filter(r => (r.state||'active').toLowerCase() === 'idle' && r.start_time)
@@ -957,7 +989,7 @@ async function getEmployeeDetail(username, computer, forDate) {
         const s = r.start_time.slice(0,8);
         const dur = r.duration_sec || 0;
         const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
-        return { startSec, endSec: startSec + dur, label: r.start_time.slice(0,5) };
+        return { startSec, endSec: startSec + dur };
       })
       .sort((a,b) => a.startSec - b.startSec);
     const merged = [];
@@ -968,12 +1000,25 @@ async function getEmployeeDetail(username, computer, forDate) {
       else { merged.push(cur); cur = { ...iv }; }
     }
     if (cur) merged.push(cur);
-    return merged.map(m => ({
+    // Subtract meeting time from each idle block
+    const result = [];
+    for (const { startSec, endSec } of merged) {
+      for (const [ps, pe] of subtractMeetings(startSec, endSec)) {
+        if (pe - ps >= 60) result.push({ startSec: ps, endSec: pe }); // ignore tiny slivers < 1 min
+      }
+    }
+    return result.map(m => ({
       from: `${String(Math.floor(m.startSec/3600)).padStart(2,'0')}:${String(Math.floor((m.startSec%3600)/60)).padStart(2,'0')}`,
       to:   `${String(Math.floor(m.endSec/3600)).padStart(2,'0')}:${String(Math.floor((m.endSec%3600)/60)).padStart(2,'0')}`,
       dur:  fmtSecs(m.endSec - m.startSec),
     }));
   })();
+
+  // Recalculate idleS excluding meeting time
+  const idleS = idlePeriods.reduce((sum, p) => {
+    const [h,min] = p.to.split(':').map(Number); const [h2,min2] = p.from.split(':').map(Number);
+    return sum + (h*3600+min*60) - (h2*3600+min2*60);
+  }, 0);
   const appCtr = {}, socialCtr = {};
   // workTitles[title] = { secs, app }, same for commsTitles, nonworkTitles
   const workTitles = {}, commsTitles = {}, nonworkTitles = {};
