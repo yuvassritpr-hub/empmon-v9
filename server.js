@@ -287,32 +287,42 @@ async function buildMonthlyReport(month) {
       if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
     }
 
-    let activeS = 0;
+    const activeS = mergeIntervals(appRows, 'active');
     const appCtr = {}, workCtr = {}, commsCtr = {}, nonworkCtr = {};
     const socialCtr = {};
     const gmailAccounts = new Set();
+    // Deduplicate per-app durations using mergeIntervals logic per day+app
+    const seenByDayApp = {};
     for (const ar of appRows) {
       if ((ar.state||'active').toLowerCase() !== 'active') continue;
-      const dur = ar.duration_sec || 0;
-      activeS += dur;
-      appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
-      const cls = classify(ar.app, ar.window_title);
-      if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
-      else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
-      else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
-      // social from window titles
+      const key = `${ar.date}||${ar.app||'unknown'}`;
+      if (!seenByDayApp[key]) seenByDayApp[key] = { segs: [], ar };
+      const s = (ar.start_time||'').slice(0,8);
+      const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+      seenByDayApp[key].segs.push([startSec, startSec + (ar.duration_sec||0)]);
+      // social / gmail on raw rows (dedup not needed for these)
       const tl = (ar.window_title||'').toLowerCase();
       for (const kw of SOCIAL_KW) {
         if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
-          socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
+          socialCtr[kw] = (socialCtr[kw]||0) + (ar.duration_sec||0); break;
         }
       }
-      // gmail accounts
       const isBrowser = ['chrome','firefox','msedge','edge'].some(b=>(ar.app||'').toLowerCase().includes(b));
-      if (isBrowser) {
-        const matches = (ar.window_title||'').match(EMAIL_RE) || [];
-        matches.forEach(e => gmailAccounts.add(e));
+      if (isBrowser) { const matches = (ar.window_title||'').match(EMAIL_RE)||[]; matches.forEach(e=>gmailAccounts.add(e)); }
+    }
+    for (const { segs, ar } of Object.values(seenByDayApp)) {
+      segs.sort((a,b)=>a[0]-b[0]);
+      let mergedDur = 0, cur = null;
+      for (const [s,e] of segs) {
+        if (!cur) { cur=[s,e]; continue; }
+        if (s<=cur[1]) { cur[1]=Math.max(cur[1],e); } else { mergedDur+=cur[1]-cur[0]; cur=[s,e]; }
       }
+      if (cur) mergedDur += cur[1]-cur[0];
+      appCtr[ar.app] = (appCtr[ar.app]||0) + mergedDur;
+      const cls = classify(ar.app, ar.window_title);
+      if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + mergedDur;
+      else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + mergedDur;
+      else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + mergedDur;
     }
 
     const total = activeS || 1;
