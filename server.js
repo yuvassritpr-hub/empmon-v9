@@ -287,7 +287,11 @@ async function buildMonthlyReport(month) {
       if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
     }
 
-    const activeS = mergeIntervals(appRows, 'active');
+    // Sum merged active seconds per day (mergeIntervals works per-day only)
+    const monthDays = [...new Set(appRows.map(r => r.date))];
+    const activeS = monthDays.reduce((sum, day) => {
+      return sum + mergeIntervals(appRows.filter(r => r.date === day), 'active');
+    }, 0);
     const appCtr = {}, workCtr = {}, commsCtr = {}, nonworkCtr = {};
     const socialCtr = {};
     const gmailAccounts = new Set();
