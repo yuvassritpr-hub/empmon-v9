@@ -408,14 +408,38 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
 
       const activeS = mergeIntervals(dayApp, 'active');
       const idleS = mergeIntervals(dayApp, 'idle');
+      const total = activeS || 1;
 
-      const appCtr = {};
+      const appCtr = {}, workCtr = {}, commsCtr = {}, nonworkCtr = {}, socialCtr = {};
       for (const ar of dayApp) {
         if ((ar.state||'active').toLowerCase() !== 'active') continue;
-        appCtr[ar.app] = (appCtr[ar.app]||0) + (ar.duration_sec||0);
+        const dur = ar.duration_sec || 0;
+        appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
+        const cls = classify(ar.app, ar.window_title);
+        if (cls === 'work') workCtr[ar.app] = (workCtr[ar.app]||0) + dur;
+        else if (cls === 'comms') commsCtr[ar.app] = (commsCtr[ar.app]||0) + dur;
+        else nonworkCtr[ar.app] = (nonworkCtr[ar.app]||0) + dur;
+        const tl = (ar.window_title||'').toLowerCase();
+        for (const kw of SOCIAL_KW) {
+          if (tl.includes(kw) || (ar.app||'').toLowerCase().includes(kw)) {
+            socialCtr[kw] = (socialCtr[kw]||0) + dur; break;
+          }
+        }
       }
+
       const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
         .map(([a,s])=>`${friendlyName(a)} (${fmtSecs(s)})`).join(', ');
+      const workDetails = Object.entries(workCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+        .map(([a,s])=>`${friendlyName(a)}: ${fmtSecs(s)}`).join(', ') || 'None';
+      const commsDetails = Object.entries(commsCtr).sort((a,b)=>b[1]-a[1]).slice(0,5)
+        .map(([a,s])=>`${friendlyName(a)}: ${fmtSecs(s)}`).join(', ') || 'None';
+      const nonworkDetails = Object.entries(nonworkCtr).sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([a,s])=>`${friendlyName(a)}: ${fmtSecs(s)}`).join(', ') || 'None';
+      const socialAlerts = Object.entries(socialCtr).map(([k,v])=>`${k}: ${fmtSecs(v)}`).join(', ') || 'None';
+
+      const workPct  = Math.round(Object.values(workCtr).reduce((a,b)=>a+b,0)/total*100);
+      const commsPct = Math.round(Object.values(commsCtr).reduce((a,b)=>a+b,0)/total*100);
+      const nonworkPct = Math.round(Object.values(nonworkCtr).reduce((a,b)=>a+b,0)/total*100);
 
       // Teams meetings
       const meetingCtr = {};
@@ -437,24 +461,39 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
         'Active Time': fmtSecs(activeS),
         'Idle Time': fmtSecs(idleS),
         'Top Applications': topApps,
+        'Work Details': workDetails,
+        'Work %': workPct + '%',
+        'Comms Details': commsDetails,
+        'Comms %': commsPct + '%',
+        'Non-Work %': nonworkPct + '%',
+        'Non-Work Details': nonworkDetails,
+        'Social Media': socialAlerts,
         'Teams Meetings': meetings,
       });
     }
 
     // Summary row
     const totalActive = days.reduce((s, day) => s + mergeIntervals(appRows.filter(r=>r.date===day), 'active'), 0);
+    const totalIdle   = days.reduce((s, day) => s + mergeIntervals(appRows.filter(r=>r.date===day), 'idle'), 0);
     report.push({
       'Date': 'TOTAL',
       'Login Time': '',
       'Shutdown Time': '',
       'Active Time': fmtSecs(totalActive),
-      'Idle Time': '',
+      'Idle Time': fmtSecs(totalIdle),
       'Top Applications': `${days.length} days worked`,
+      'Work Details': '',
+      'Work %': '',
+      'Comms Details': '',
+      'Comms %': '',
+      'Non-Work %': '',
+      'Non-Work Details': '',
+      'Social Media': '',
       'Teams Meetings': '',
     });
 
     const ws = XLSX.utils.json_to_sheet(report);
-    ws['!cols'] = [14,12,12,14,14,50,50].map(w=>({wch:w}));
+    ws['!cols'] = [14,12,12,14,14,45,40,10,40,10,10,35,30,50].map(w=>({wch:w}));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${username} ${m}`);
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
