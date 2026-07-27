@@ -1007,9 +1007,10 @@ async function getEmployeeDetail(username, computer, forDate) {
   const topApps = Object.entries(appCtr).sort((a,b)=>b[1]-a[1]).slice(0,10)
     .map(([app,dur]) => ({ app: friendlyName(app), dur: fmtSecs(dur), secs: dur }));
 
-  // Teams meeting detection — window titles that are meetings (not chats/navigation)
+  // Teams meeting detection — use first-to-last appearance span for accurate duration
+  // (employee may minimize Teams during meeting, so foreground-only time is undercount)
   const TEAMS_NON_MEETING = ['chat |','teams and channels','activity |','calendar |','files |','apps |','help |','search |','calls |','notifications','settings |','home |'];
-  const meetingCtr = {};
+  const meetingSpans = {}; // meetingName -> { firstSec, lastSec }
   for (const ar of appRows) {
     const appL = (ar.app||'').toLowerCase();
     const title = (ar.window_title||'').trim();
@@ -1018,12 +1019,19 @@ async function getEmployeeDetail(username, computer, forDate) {
     if (!isTeams) continue;
     const isNonMeeting = TEAMS_NON_MEETING.some(p => titleL.startsWith(p)) || titleL === 'microsoft teams' || titleL === '';
     if (isNonMeeting) continue;
-    // Strip "| Microsoft Teams" suffix for display
     const meetingName = title.replace(/\s*\|\s*Microsoft Teams\s*$/i, '').trim() || title;
-    meetingCtr[meetingName] = (meetingCtr[meetingName]||0) + (ar.duration_sec||0);
+    const s = (ar.start_time||'').slice(0,8);
+    const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+    const endSec = startSec + (ar.duration_sec||0);
+    if (!meetingSpans[meetingName]) meetingSpans[meetingName] = { firstSec: startSec, lastSec: endSec };
+    else {
+      meetingSpans[meetingName].firstSec = Math.min(meetingSpans[meetingName].firstSec, startSec);
+      meetingSpans[meetingName].lastSec  = Math.max(meetingSpans[meetingName].lastSec,  endSec);
+    }
   }
-  const teamsMeetings = Object.entries(meetingCtr).sort((a,b)=>b[1]-a[1])
-    .map(([name,secs]) => ({ name, dur: fmtSecs(secs), secs }));
+  const teamsMeetings = Object.entries(meetingSpans)
+    .map(([name, { firstSec, lastSec }]) => ({ name, secs: lastSec - firstSec, dur: fmtSecs(lastSec - firstSec) }))
+    .sort((a,b) => b.secs - a.secs);
   const teamsMeetingTotal = teamsMeetings.reduce((a,m)=>a+m.secs,0);
   // Social from window titles / app names
   const socialFromTitles = Object.entries(socialCtr).map(([k,v]) => ({ site: k, dur: fmtSecs(v), secs: v }));
