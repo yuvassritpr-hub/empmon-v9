@@ -39,14 +39,6 @@ export default function Download() {
           Note: Download the agent only if requested by your IT admin
         </p>
 
-        {/* What it does */}
-        <div style={{ marginTop:32, padding:20, background:'#f8f8f8', borderRadius:8, textAlign:'left', fontSize:13, color:'#555', lineHeight:2 }}>
-          <div>✅ Runs silently in the background — no window shown</div>
-          <div>✅ Tracks active hours and reports to company server</div>
-          <div>✅ Starts automatically when Windows boots</div>
-          <div>✅ Uses less than 1% CPU</div>
-        </div>
-
       </div>
     </div>
   )
