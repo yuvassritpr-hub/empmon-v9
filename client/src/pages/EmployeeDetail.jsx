@@ -147,9 +147,17 @@ export default function EmployeeDetail() {
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {(data.idlePeriods||[]).map((p,i)=>(
-              <div key={i} style={{background:'#d2992215',border:'1px solid #d2992230',borderRadius:8,padding:'8px 14px',textAlign:'center'}}>
-                <div style={{fontSize:13,fontWeight:700,color:'var(--yellow)'}}>{p.from} – {p.to}</div>
-                <div style={{fontSize:11,color:'var(--text-dim)',marginTop:2}}>{p.dur}</div>
+              <div key={i} style={{
+                background: p.isLock ? '#4A90D915' : '#d2992215',
+                border: `1px solid ${p.isLock ? '#4A90D940' : '#d2992230'}`,
+                borderRadius:8,padding:'8px 14px',textAlign:'center'
+              }}>
+                <div style={{fontSize:13,fontWeight:700,color: p.isLock ? '#4A90D9' : 'var(--yellow)'}}>
+                  {p.isLock ? '🔒 ' : '⏸ '}{p.from} – {p.to}
+                </div>
+                <div style={{fontSize:11,color:'var(--text-dim)',marginTop:2}}>
+                  {p.dur}{p.isLock ? ' (PC Locked)' : ''}
+                </div>
               </div>
             ))}
           </div>

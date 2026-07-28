@@ -1014,7 +1014,35 @@ async function getEmployeeDetail(username, computer, forDate) {
     }));
   })();
 
-  // Recalculate idleS excluding meeting time
+  // Add lock periods as break time (locked PC = definite away from desk)
+  const lockPeriods = [];
+  for (let i = 0; i < lockTimes.length; i++) {
+    const lockT = lockTimes[i].replace(' (est)','').replace(' (prev day)','');
+    const unlockT = unlockTimes[i] ? unlockTimes[i].replace(' (est)','').replace(' (prev day)','') : null;
+    if (!unlockT) continue;
+    const ls = parseInt(lockT.slice(0,2))*3600 + parseInt(lockT.slice(3,5))*60;
+    const le = parseInt(unlockT.slice(0,2))*3600 + parseInt(unlockT.slice(3,5))*60;
+    if (le > ls && (le - ls) >= 60) lockPeriods.push({ startSec: ls, endSec: le });
+  }
+  // Merge lock periods into idlePeriods (avoid duplicates with existing idle periods)
+  for (const lp of lockPeriods) {
+    const alreadyCovered = idlePeriods.some(ip => {
+      const s = parseInt(ip.from.slice(0,2))*3600 + parseInt(ip.from.slice(3,5))*60;
+      const e = parseInt(ip.to.slice(0,2))*3600 + parseInt(ip.to.slice(3,5))*60;
+      return Math.max(s, lp.startSec) < Math.min(e, lp.endSec);
+    });
+    if (!alreadyCovered) {
+      idlePeriods.push({
+        from: `${String(Math.floor(lp.startSec/3600)).padStart(2,'0')}:${String(Math.floor((lp.startSec%3600)/60)).padStart(2,'0')}`,
+        to:   `${String(Math.floor(lp.endSec/3600)).padStart(2,'0')}:${String(Math.floor((lp.endSec%3600)/60)).padStart(2,'0')}`,
+        dur:  fmtSecs(lp.endSec - lp.startSec),
+        isLock: true,
+      });
+    }
+  }
+  idlePeriods.sort((a,b) => a.from.localeCompare(b.from));
+
+  // Recalculate idleS including lock periods
   const idleS = idlePeriods.reduce((sum, p) => {
     const [h,min] = p.to.split(':').map(Number); const [h2,min2] = p.from.split(':').map(Number);
     return sum + (h*3600+min*60) - (h2*3600+min2*60);
