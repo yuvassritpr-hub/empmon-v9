@@ -6,6 +6,7 @@ import DailyTimeline from './pages/DailyTimeline.jsx'
 import SocialAlerts from './pages/SocialAlerts.jsx'
 import IpConfig from './pages/IpConfig.jsx'
 import Endpoints from './pages/Endpoints.jsx'
+import Download from './pages/Download.jsx'
 import Login from './pages/Login.jsx'
 
 const NAV = [
@@ -73,6 +74,9 @@ export default function App() {
     localStorage.removeItem('empmon_auth')
     setAuth(false)
   }
+
+  // Download page is public — no login needed
+  if (window.location.pathname === '/download') return <BrowserRouter><Routes><Route path="/download" element={<Download />} /></Routes></BrowserRouter>
 
   if (!auth) return <Login onLogin={() => setAuth(true)} />
 

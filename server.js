@@ -1412,6 +1412,19 @@ app.get('/api/debug/idle/:username/:computer', async (req, res) => {
 
 app.get('/api/version', (req, res) => res.json({ version: 'v9.1-idle-fix', ts: Date.now() }));
 
+// Agent download endpoint — serves EmpMonAgent.exe
+app.get('/download/agent', (req, res) => {
+  const path = require('path');
+  const fs   = require('fs');
+  const exePath = path.join(__dirname, 'agent', 'EmpMonAgent.exe');
+  if (!fs.existsSync(exePath)) {
+    return res.status(404).send('Agent file not found. Please contact IT admin.');
+  }
+  res.setHeader('Content-Disposition', 'attachment; filename="EmpMonAgent.exe"');
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(exePath);
+});
+
 // -- SERVE REACT -----------------------------------------------
 const clientBuild = path.join(__dirname, 'client', 'dist');
 app.use(express.static(clientBuild));
