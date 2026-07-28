@@ -34,8 +34,18 @@ export default function Download() {
           </button>
         </a>
 
-        {/* Note */}
-        <p style={{ marginTop:28, fontSize:13, color:'#888' }}>
+        {/* Warning help */}
+        <div style={{ marginTop:28, background:'#fff8e1', border:'1px solid #f0c040', borderRadius:8, padding:'14px 18px', textAlign:'left', fontSize:13, color:'#7a6000' }}>
+          <div style={{ fontWeight:700, marginBottom:8 }}>⚠️ If browser shows "This might be malware":</div>
+          <div style={{ lineHeight:2 }}>
+            <div><strong>Chrome:</strong> Click the <strong>↓ arrow</strong> next to the file → <strong>"Keep anyway"</strong></div>
+            <div><strong>Edge:</strong> Click <strong>"..."</strong> → <strong>"Keep"</strong> → <strong>"Show more"</strong> → <strong>"Keep anyway"</strong></div>
+            <div><strong>Windows Defender:</strong> Click <strong>"More info"</strong> → <strong>"Run anyway"</strong></div>
+          </div>
+          <div style={{ marginTop:8, color:'#888', fontSize:12 }}>This is a company internal tool — it is safe to run.</div>
+        </div>
+
+        <p style={{ marginTop:16, fontSize:13, color:'#888' }}>
           Note: Download the agent only if requested by your IT admin
         </p>
 
