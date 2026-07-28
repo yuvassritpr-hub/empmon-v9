@@ -100,6 +100,15 @@ async function initDB() {
       ssid TEXT DEFAULT '', received_at TEXT NOT NULL,
       UNIQUE(date, username, computer, ssid)
     );
+    CREATE TABLE IF NOT EXISTS endpoint_info (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL, computer TEXT NOT NULL,
+      serial TEXT DEFAULT '', os_name TEXT DEFAULT '', os_version TEXT DEFAULT '',
+      cpu_name TEXT DEFAULT '', cpu_cores INT DEFAULT 0, cpu_threads INT DEFAULT 0,
+      ram_total_gb NUMERIC DEFAULT 0,
+      last_seen TEXT DEFAULT '', last_ip TEXT DEFAULT '', last_city TEXT DEFAULT '',
+      UNIQUE(username, computer)
+    );
     CREATE TABLE IF NOT EXISTS ip_config (
       id SERIAL PRIMARY KEY,
       ip_prefix TEXT NOT NULL UNIQUE,
@@ -262,6 +271,20 @@ app.post('/api/heartbeat', async (req, res) => {
         VALUES ($1,$2,$3,$4,$5,$6)
         ON CONFLICT DO NOTHING`,
         [today, now, d.username, d.computer||'N/A', d.wifi_ssid||'', receivedAt]);
+    }
+    // Store/update endpoint system info
+    if (d.system_info && typeof d.system_info === 'object') {
+      const si = d.system_info;
+      await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, last_seen, last_ip, last_city)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        ON CONFLICT (username, computer) DO UPDATE SET
+          serial=EXCLUDED.serial, os_name=EXCLUDED.os_name, os_version=EXCLUDED.os_version,
+          cpu_name=EXCLUDED.cpu_name, cpu_cores=EXCLUDED.cpu_cores, cpu_threads=EXCLUDED.cpu_threads,
+          ram_total_gb=EXCLUDED.ram_total_gb, last_seen=EXCLUDED.last_seen,
+          last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
+        [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
+         si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
+         receivedAt, d.ip||'', d.city||'']);
     }
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
@@ -648,6 +671,26 @@ app.delete('/api/ipconfig/:id', async (req, res) => {
     await query(`DELETE FROM ip_config WHERE id=$1`, [req.params.id]);
     await loadIpConfig();
     res.json({ status: 'ok' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Endpoint Management Center API
+app.get('/api/endpoints', async (req, res) => {
+  try {
+    const today = todayIST();
+    const endpoints = await query(`SELECT * FROM endpoint_info ORDER BY username`);
+    // Enrich with today's status and disk info
+    const result = await Promise.all(endpoints.map(async ep => {
+      const hb = await query(`SELECT time, event FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time DESC LIMIT 1`, [ep.username, ep.computer, today]);
+      const disks = await query(`SELECT drive, total_gb, used_gb, free_gb, pct_used FROM disk_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY drive`, [ep.username, ep.computer, today]);
+      const lastSeen = ep.last_seen || '';
+      const nowMs = Date.now();
+      const lastSeenMs = lastSeen ? new Date(lastSeen.replace(' ','T')).getTime() : 0;
+      const minsAgo = Math.floor((nowMs - lastSeenMs) / 60000);
+      const status = minsAgo < 10 ? 'Online' : minsAgo < 60 ? 'Idle' : 'Offline';
+      return { ...ep, disks, status, minsAgo };
+    }));
+    res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
