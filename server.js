@@ -106,6 +106,7 @@ async function initDB() {
       serial TEXT DEFAULT '', os_name TEXT DEFAULT '', os_version TEXT DEFAULT '',
       cpu_name TEXT DEFAULT '', cpu_cores INT DEFAULT 0, cpu_threads INT DEFAULT 0,
       ram_total_gb NUMERIC DEFAULT 0,
+      battery_pct NUMERIC DEFAULT NULL, battery_charging BOOLEAN DEFAULT NULL,
       last_seen TEXT DEFAULT '', last_ip TEXT DEFAULT '', last_city TEXT DEFAULT '',
       UNIQUE(username, computer)
     );
@@ -275,15 +276,18 @@ app.post('/api/heartbeat', async (req, res) => {
     // Store/update endpoint system info
     if (d.system_info && typeof d.system_info === 'object') {
       const si = d.system_info;
-      await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, last_seen, last_ip, last_city)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, last_seen, last_ip, last_city)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         ON CONFLICT (username, computer) DO UPDATE SET
           serial=EXCLUDED.serial, os_name=EXCLUDED.os_name, os_version=EXCLUDED.os_version,
           cpu_name=EXCLUDED.cpu_name, cpu_cores=EXCLUDED.cpu_cores, cpu_threads=EXCLUDED.cpu_threads,
-          ram_total_gb=EXCLUDED.ram_total_gb, last_seen=EXCLUDED.last_seen,
+          ram_total_gb=EXCLUDED.ram_total_gb, battery_pct=EXCLUDED.battery_pct,
+          battery_charging=EXCLUDED.battery_charging, last_seen=EXCLUDED.last_seen,
           last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
         [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
          si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
+         si.battery_pct !== undefined ? si.battery_pct : null,
+         si.battery_charging !== undefined ? si.battery_charging : null,
          receivedAt, d.ip||'', d.city||'']);
     }
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,

@@ -169,6 +169,33 @@ export default function Endpoints() {
                   </div>
                 </div>
 
+                {/* Battery */}
+                {ep.battery_pct !== null && ep.battery_pct !== undefined && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#888', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>🔋 Battery</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ flex:1, height:10, background:'#e0e0e0', borderRadius:6, overflow:'hidden' }}>
+                        <div style={{
+                          height:'100%', borderRadius:6,
+                          width:`${ep.battery_pct}%`,
+                          background: ep.battery_pct > 50 ? GREEN : ep.battery_pct > 20 ? YELLOW : RED,
+                          transition:'width 0.3s'
+                        }}/>
+                      </div>
+                      <span style={{ fontSize:13, fontWeight:700, minWidth:40,
+                        color: ep.battery_pct > 50 ? GREEN : ep.battery_pct > 20 ? YELLOW : RED }}>
+                        {ep.battery_pct}%
+                      </span>
+                      <span style={{ fontSize:12 }}>
+                        {ep.battery_charging ? '⚡ Charging' : '🔋 On Battery'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {ep.battery_pct === null && (
+                  <div style={{ marginBottom:14, fontSize:12, color:'#bbb' }}>🖥️ Desktop (no battery)</div>
+                )}
+
                 {/* Disk */}
                 {(ep.disks||[]).length > 0 && (
                   <div>
