@@ -1094,6 +1094,37 @@ async function getEmployeeDetail(username, computer, forDate) {
         return { startSec, endSec: startSec + dur };
       })
       .sort((a,b) => a.startSec - b.startSec);
+
+    // Also detect gaps in app_log coverage > IDLE_MIN (agent restarts lose idle rows)
+    // Build a coverage timeline from ALL sessionAppRows sorted by start
+    const allSorted = sessionAppRows
+      .filter(r => r.start_time)
+      .map(r => {
+        const s = r.start_time.slice(0,8);
+        const dur = r.duration_sec || 0;
+        const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+        return { startSec, endSec: startSec + dur };
+      })
+      .sort((a,b) => a.startSec - b.startSec);
+    // Merge coverage into continuous blocks
+    const coverage = [];
+    for (const iv of allSorted) {
+      if (!coverage.length) { coverage.push({ ...iv }); continue; }
+      const last = coverage[coverage.length-1];
+      if (iv.startSec <= last.endSec + 30) { last.endSec = Math.max(last.endSec, iv.endSec); }
+      else { coverage.push({ ...iv }); }
+    }
+    // Gaps between coverage blocks > IDLE_MIN*60 = idle time
+    const GAP_IDLE_SEC = IDLE_MIN * 60;
+    for (let i = 1; i < coverage.length; i++) {
+      const gapStart = coverage[i-1].endSec;
+      const gapEnd   = coverage[i].startSec;
+      if (gapEnd - gapStart >= GAP_IDLE_SEC) {
+        intervals.push({ startSec: gapStart, endSec: gapEnd });
+      }
+    }
+    intervals.sort((a,b) => a.startSec - b.startSec);
+
     const merged = [];
     let cur = null;
     for (const iv of intervals) {
