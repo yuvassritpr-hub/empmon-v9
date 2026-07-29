@@ -476,12 +476,24 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
       }
       if (login === '--' && dayApp.length > 0) login = dayApp[0].start_time?.slice(0,8) || '--';
 
-      const activeS = mergeIntervals(dayApp, 'active');
-      const idleS = mergeIntervals(dayApp, 'idle');
+      // Filter to rows after first login to prevent overnight idle inflation
+      const loginSec = login !== '--'
+        ? parseInt(login.slice(0,2))*3600 + parseInt(login.slice(3,5))*60
+        : 0;
+      const sessionDayApp = loginSec > 0
+        ? dayApp.filter(r => {
+            const s = (r.start_time||'').slice(0,8);
+            const rowSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||'0');
+            return rowSec >= loginSec - 120;
+          })
+        : dayApp;
+
+      const activeS = mergeIntervals(sessionDayApp, 'active');
+      const idleS = mergeIntervals(sessionDayApp, 'idle');
       const total = activeS || 1;
 
       const appCtr = {}, workCtr = {}, commsCtr = {}, nonworkCtr = {}, socialCtr = {};
-      for (const ar of dayApp) {
+      for (const ar of sessionDayApp) {
         if ((ar.state||'active').toLowerCase() !== 'active') continue;
         const dur = ar.duration_sec || 0;
         appCtr[ar.app] = (appCtr[ar.app]||0) + dur;
@@ -513,7 +525,7 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
 
       // Teams meetings
       const meetingCtr = {};
-      for (const ar of dayApp) {
+      for (const ar of sessionDayApp) {
         const appL = (ar.app||'').toLowerCase();
         const titleL = (ar.window_title||'').toLowerCase();
         if (!appL.includes('teams') && !titleL.includes('microsoft teams')) continue;
