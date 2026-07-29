@@ -21,21 +21,20 @@ function monthOptions() {
 function StatusCell({ info }) {
   if (!info) return <td style={{ padding: '8px 6px', textAlign: 'center', background: '#f5f5f5', color: '#ccc', fontSize: 11 }}>—</td>
   const { status, login, logout } = info
-  const cfg = {
-    Present: { bg: '#1a7f4b15', color: GREEN,  border: '#1a7f4b33' },
-    Late:    { bg: '#d2992215', color: YELLOW, border: '#d2992233' },
-    Absent:  { bg: '#c0392b10', color: RED,    border: '#c0392b22' },
-  }[status] || { bg: '#f5f5f5', color: GREY, border: '#ddd' }
+  const present = status !== 'Absent'
+  const bg     = present ? '#1a7f4b12' : '#c0392b08'
+  const border = present ? '#1a7f4b30' : '#c0392b20'
 
   return (
-    <td style={{ padding: '6px 4px', textAlign: 'center', background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: cfg.color }}>
-        {status === 'Absent' ? '✕' : '✓'} {status}
-      </div>
-      {status !== 'Absent' && (
-        <div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>
-          {login}{logout !== '--' ? ` – ${logout}` : ''}
-        </div>
+    <td style={{ padding: '6px 4px', textAlign: 'center', background: bg, border: `1px solid ${border}` }}>
+      {present ? (
+        <>
+          <div style={{ fontSize: 10, fontWeight: 700, color: GREEN }}>✓</div>
+          <div style={{ fontSize: 10, color: '#444', lineHeight: 1.5 }}>{login}</div>
+          {logout !== '--' && <div style={{ fontSize: 10, color: '#888' }}>{logout}</div>}
+        </>
+      ) : (
+        <div style={{ fontSize: 11, color: RED, fontWeight: 700 }}>✕</div>
       )}
     </td>
   )
