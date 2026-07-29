@@ -273,23 +273,26 @@ app.post('/api/heartbeat', async (req, res) => {
         ON CONFLICT DO NOTHING`,
         [today, now, d.username, d.computer||'N/A', d.wifi_ssid||'', receivedAt]);
     }
-    // Store/update endpoint system info
-    if (d.system_info && typeof d.system_info === 'object') {
-      const si = d.system_info;
-      await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, last_seen, last_ip, last_city)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-        ON CONFLICT (username, computer) DO UPDATE SET
-          serial=EXCLUDED.serial, os_name=EXCLUDED.os_name, os_version=EXCLUDED.os_version,
-          cpu_name=EXCLUDED.cpu_name, cpu_cores=EXCLUDED.cpu_cores, cpu_threads=EXCLUDED.cpu_threads,
-          ram_total_gb=EXCLUDED.ram_total_gb, battery_pct=EXCLUDED.battery_pct,
-          battery_charging=EXCLUDED.battery_charging, last_seen=EXCLUDED.last_seen,
-          last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
-        [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
-         si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
-         si.battery_pct !== undefined ? si.battery_pct : null,
-         si.battery_charging !== undefined ? si.battery_charging : null,
-         receivedAt, d.ip||'', d.city||'']);
-    }
+    // Store/update endpoint info on every heartbeat (system_info optional)
+    const si = (d.system_info && typeof d.system_info === 'object') ? d.system_info : {};
+    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, last_seen, last_ip, last_city)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+      ON CONFLICT (username, computer) DO UPDATE SET
+        serial=COALESCE(NULLIF(EXCLUDED.serial,''), endpoint_info.serial),
+        os_name=COALESCE(NULLIF(EXCLUDED.os_name,''), endpoint_info.os_name),
+        os_version=COALESCE(NULLIF(EXCLUDED.os_version,''), endpoint_info.os_version),
+        cpu_name=COALESCE(NULLIF(EXCLUDED.cpu_name,''), endpoint_info.cpu_name),
+        cpu_cores=CASE WHEN EXCLUDED.cpu_cores>0 THEN EXCLUDED.cpu_cores ELSE endpoint_info.cpu_cores END,
+        cpu_threads=CASE WHEN EXCLUDED.cpu_threads>0 THEN EXCLUDED.cpu_threads ELSE endpoint_info.cpu_threads END,
+        ram_total_gb=CASE WHEN EXCLUDED.ram_total_gb>0 THEN EXCLUDED.ram_total_gb ELSE endpoint_info.ram_total_gb END,
+        battery_pct=COALESCE(EXCLUDED.battery_pct, endpoint_info.battery_pct),
+        battery_charging=COALESCE(EXCLUDED.battery_charging, endpoint_info.battery_charging),
+        last_seen=EXCLUDED.last_seen, last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
+      [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
+       si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
+       si.battery_pct !== undefined ? si.battery_pct : null,
+       si.battery_charging !== undefined ? si.battery_charging : null,
+       receivedAt, d.ip||'', d.city||'']);
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
     res.json({ status: 'ok', known: known.length > 0 });
