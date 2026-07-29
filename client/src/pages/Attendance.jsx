@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 
-function tzLabel(tzName, utcOffset) {
-  const tz = (tzName||'').toLowerCase()
-  if (tz.includes('india') || tz.includes('kolkata') || utcOffset === 5.5) return '🇮🇳 IST'
-  if (tz.includes('dubai') || tz.includes('gulf') || utcOffset === 4)      return '🇦🇪 GST'
-  if (tz.includes('nairobi') || tz.includes('east africa') || utcOffset === 3) return '🇰🇪 EAT'
-  if (tz.includes('ghana') || tz.includes('greenwich') || utcOffset === 0) return '🇬🇭 GMT'
-  if (tz.includes('cameroon') || tz.includes('west africa') || utcOffset === 1) return '🇨🇲 WAT'
-  if (tz.includes('mauritius') || utcOffset === 4) return '🇲🇺 MUT'
-  if (utcOffset !== undefined) { const s = utcOffset >= 0 ? '+' : ''; return `🌍 UTC${s}${utcOffset}` }
+function tzLabel(tzName, utcOffsetRaw) {
+  const tz  = (tzName||'').toLowerCase()
+  const off = parseFloat(utcOffsetRaw)
+  if (tz.includes('india') || tz.includes('kolkata') || off === 5.5) return '🇮🇳 IST'
+  if (tz.includes('dubai') || tz.includes('gulf')    || off === 4)   return '🇦🇪 GST'
+  if (tz.includes('nairobi') || tz.includes('east africa') || off === 3) return '🇰🇪 EAT'
+  if (tz.includes('ghana') || tz.includes('greenwich') || off === 0) return '🇬🇭 GMT'
+  if (tz.includes('cameroon') || tz.includes('west africa') || off === 1) return '🇨🇲 WAT'
+  if (tz.includes('mauritius')) return '🇲🇺 MUT'
+  if (!isNaN(off)) { const s = off >= 0 ? '+' : ''; return `🌍 UTC${s}${off}` }
   return '🌍'
 }
 
