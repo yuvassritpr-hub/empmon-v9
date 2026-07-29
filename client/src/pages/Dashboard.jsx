@@ -242,7 +242,7 @@ export default function Dashboard() {
       {/* Employee Table */}
       <div style={{ background:'#fff', borderRadius: 14, boxShadow:'0 2px 16px rgba(74,21,80,0.08)', overflow:'hidden' }}>
         {/* Table Header */}
-        <div style={{ display:'grid', gridTemplateColumns:'44px 200px 120px 110px 120px 130px 160px 140px 130px 80px',
+        <div style={{ display:'grid', gridTemplateColumns:'44px 200px 120px 100px 120px 160px 140px 130px 80px',
           padding:'12px 20px', background: PURPLE, color:'#fff', fontSize: 11, fontWeight: 700,
           letterSpacing: 0.5, gap: 8 }}>
           <div></div>
@@ -250,7 +250,6 @@ export default function Dashboard() {
           <div>STATUS</div>
           <div>LOGIN</div>
           <div>ACTIVE / IDLE</div>
-          <div>SCORE</div>
           <div>PRODUCTIVITY</div>
           <div>TOP APPS</div>
           <div>LOCATION / IP</div>
@@ -269,7 +268,7 @@ export default function Dashboard() {
           <div key={`${e.username}-${e.computer}`}
             className="emp-row"
             style={{
-              display:'grid', gridTemplateColumns:'44px 200px 120px 110px 120px 130px 160px 140px 130px 80px',
+              display:'grid', gridTemplateColumns:'44px 200px 120px 100px 120px 160px 140px 130px 80px',
               padding:'14px 20px', gap: 8, alignItems:'center',
               borderBottom: idx < filtered.length-1 ? `1px solid ${PURPLE}10` : 'none',
               background: e.socialSites?.length ? '#fff5f5' : '#fff',
@@ -319,14 +318,6 @@ export default function Dashboard() {
               <div style={{ fontSize: 11, color:'#888' }}>Idle: {e.idleToday}</div>
               <div style={{ fontSize: 10, color:'#bbb', marginTop: 1 }}>🔒{e.lockCount||0} 🔓{e.unlockCount||0}</div>
             </div>
-
-            {/* Productivity Score */}
-            <ProductivityScore
-              workPct={e.workPct}
-              commsPct={e.commsPct}
-              activeToday={e.activeToday}
-              login={e.firstLogin}
-            />
 
             {/* Productivity Bar */}
             <div>
