@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react'
 
+function tzLabel(tzName, utcOffset) {
+  const tz = (tzName||'').toLowerCase()
+  if (tz.includes('india') || tz.includes('kolkata') || utcOffset === 5.5) return '🇮🇳 IST'
+  if (tz.includes('dubai') || tz.includes('gulf') || utcOffset === 4)      return '🇦🇪 GST'
+  if (tz.includes('nairobi') || tz.includes('east africa') || utcOffset === 3) return '🇰🇪 EAT'
+  if (tz.includes('ghana') || tz.includes('greenwich') || utcOffset === 0) return '🇬🇭 GMT'
+  if (tz.includes('cameroon') || tz.includes('west africa') || utcOffset === 1) return '🇨🇲 WAT'
+  if (tz.includes('mauritius') || utcOffset === 4) return '🇲🇺 MUT'
+  if (utcOffset !== undefined) { const s = utcOffset >= 0 ? '+' : ''; return `🌍 UTC${s}${utcOffset}` }
+  return '🌍'
+}
+
 const PURPLE = '#4A1550'
 const GREEN  = '#1a7f4b'
 const YELLOW = '#d29922'
@@ -154,6 +166,9 @@ export default function Attendance() {
                       position: 'sticky', left: 0, background: ei % 2 === 0 ? '#fff' : '#faf8fc',
                       borderRight: '2px solid #e8e0f0', zIndex: 1 }}>
                       {emp.username}
+                      <div style={{ fontSize: 10, color: '#7B3FA0', fontWeight: 500, marginTop: 2 }}>
+                        {tzLabel(emp.tzName, emp.utcOffset)}
+                      </div>
                     </td>
                     {days.map(ds => <StatusCell key={ds} info={emp.attendance[ds]} />)}
                     <td style={{ padding: '10px 10px', textAlign: 'center', fontWeight: 800, color: GREEN }}>{presentDays}</td>

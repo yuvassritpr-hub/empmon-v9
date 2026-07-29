@@ -10,6 +10,22 @@ const YELLOW = '#d29922'
 const BLUE   = '#1a5fa8'
 
 const STATUS_COLOR = { Online: '#1a7f4b', Idle: '#d29922', Offline: '#c0392b' }
+
+// Map timezone name → flag + short label
+function tzInfo(tzName, utcOffset) {
+  const tz = (tzName||'').toLowerCase()
+  if (tz.includes('india') || tz.includes('kolkata') || utcOffset === 5.5) return { flag:'🇮🇳', label:'IST' }
+  if (tz.includes('dubai') || tz.includes('gulf') || utcOffset === 4)      return { flag:'🇦🇪', label:'GST' }
+  if (tz.includes('nairobi') || tz.includes('east africa') || utcOffset === 3) return { flag:'🇰🇪', label:'EAT' }
+  if (tz.includes('ghana') || tz.includes('greenwich') || utcOffset === 0) return { flag:'🇬🇭', label:'GMT' }
+  if (tz.includes('cameroon') || tz.includes('west africa') || utcOffset === 1) return { flag:'🇨🇲', label:'WAT' }
+  if (tz.includes('mauritius') || utcOffset === 4) return { flag:'🇲🇺', label:'MUT' }
+  if (utcOffset !== undefined && utcOffset !== null) {
+    const sign = utcOffset >= 0 ? '+' : ''
+    return { flag:'🌍', label:`UTC${sign}${utcOffset}` }
+  }
+  return { flag:'🌍', label:'UTC' }
+}
 const APP_COLORS = ['#4A1550','#B8960C','#1a7f4b','#1a5fa8','#c0392b','#d29922','#7B3FA0','#2980b9']
 
 function StatCard({ label, value, color, icon, sub }) {
@@ -297,6 +313,9 @@ export default function Dashboard() {
               </div>
               <div style={{ fontSize: 11, color:'#888', marginTop: 1 }}>{e.computer}</div>
               {e.serial && e.serial !== 'N/A' && <div style={{ fontSize: 10, color:'#bbb' }}>S/N: {e.serial}</div>}
+              {(() => { const t = tzInfo(e.timezone_name, e.utc_offset); return (
+                <div style={{ fontSize: 10, color:'#7B3FA0', marginTop:2 }}>{t.flag} {t.label}</div>
+              )})()}
             </div>
 
             {/* Status */}

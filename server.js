@@ -108,6 +108,7 @@ async function initDB() {
       ram_total_gb NUMERIC DEFAULT 0,
       battery_pct NUMERIC DEFAULT NULL, battery_charging BOOLEAN DEFAULT NULL,
       battery_health NUMERIC DEFAULT NULL, battery_model TEXT DEFAULT '', battery_status_text TEXT DEFAULT '',
+      timezone_name TEXT DEFAULT '', utc_offset NUMERIC DEFAULT 5.5,
       last_seen TEXT DEFAULT '', last_ip TEXT DEFAULT '', last_city TEXT DEFAULT '',
       UNIQUE(username, computer)
     );
@@ -144,6 +145,8 @@ async function initDB() {
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_health NUMERIC DEFAULT NULL",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_model TEXT DEFAULT ''",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_status_text TEXT DEFAULT ''",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS timezone_name TEXT DEFAULT ''",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS utc_offset NUMERIC DEFAULT 5.5",
     ];
     for (const m of migrations) {
       try { await client.query(m); } catch(e) { console.log('[DB] migration skip:', e.message); }
@@ -287,8 +290,8 @@ app.post('/api/heartbeat', async (req, res) => {
     }
     // Store/update endpoint info on every heartbeat (system_info optional)
     const si = (d.system_info && typeof d.system_info === 'object') ? d.system_info : {};
-    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, battery_health, battery_model, battery_status_text, last_seen, last_ip, last_city)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, battery_health, battery_model, battery_status_text, timezone_name, utc_offset, last_seen, last_ip, last_city)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       ON CONFLICT (username, computer) DO UPDATE SET
         serial=COALESCE(NULLIF(EXCLUDED.serial,''), endpoint_info.serial),
         os_name=COALESCE(NULLIF(EXCLUDED.os_name,''), endpoint_info.os_name),
@@ -302,6 +305,8 @@ app.post('/api/heartbeat', async (req, res) => {
         battery_health=COALESCE(EXCLUDED.battery_health, endpoint_info.battery_health),
         battery_model=COALESCE(NULLIF(EXCLUDED.battery_model,''), endpoint_info.battery_model),
         battery_status_text=COALESCE(NULLIF(EXCLUDED.battery_status_text,''), endpoint_info.battery_status_text),
+        timezone_name=COALESCE(NULLIF(EXCLUDED.timezone_name,''), endpoint_info.timezone_name),
+        utc_offset=COALESCE(EXCLUDED.utc_offset, endpoint_info.utc_offset),
         last_seen=EXCLUDED.last_seen, last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
       [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
        si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
@@ -309,6 +314,7 @@ app.post('/api/heartbeat', async (req, res) => {
        si.battery_charging !== undefined ? si.battery_charging : null,
        si.battery_health !== undefined ? si.battery_health : null,
        si.battery_model||'', si.battery_status_text||'',
+       si.timezone_name||'', si.utc_offset !== undefined ? si.utc_offset : 5.5,
        receivedAt, d.ip||'', d.city||'']);
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
@@ -1475,32 +1481,42 @@ app.get('/api/attendance', async (req, res) => {
         `SELECT date, time, event FROM raw_log WHERE username=$1 AND date LIKE $2 ORDER BY date, time`,
         [username, `${month}%`]
       );
+      // Get employee timezone offset
+      const epInfo = await query(`SELECT timezone_name, utc_offset FROM endpoint_info WHERE username=$1 LIMIT 1`, [username]);
+      const tzName = epInfo[0]?.timezone_name || '';
+      const utcOffset = epInfo[0]?.utc_offset !== undefined ? parseFloat(epInfo[0].utc_offset) : 5.5;
+      // IST offset is 5.5 — convert from IST to local time
+      const offsetDiff = utcOffset - 5.5; // hours difference from IST
       const byDay = {};
       for (const r of rawRows) {
         if (!byDay[r.date]) byDay[r.date] = [];
         byDay[r.date].push(r);
       }
+      // Helper: convert IST HH:MM to local time
+      const toLocal = (timeStr) => {
+        if (!timeStr) return null;
+        const [h, m] = timeStr.slice(0,5).split(':').map(Number);
+        const totalMins = h * 60 + m + Math.round(offsetDiff * 60);
+        const localH = Math.floor(((totalMins % 1440) + 1440) % 1440 / 60);
+        const localM = ((totalMins % 1440) + 1440) % 1440 % 60;
+        return `${String(localH).padStart(2,'0')}:${String(localM).padStart(2,'0')}`;
+      };
       const attendance = {};
       for (const ds of days) {
         const dayRows = byDay[ds] || [];
-        let login = null, logout = null;
+        let loginRaw = null, logoutRaw = null;
         for (const r of dayRows) {
           const ev = r.event.toUpperCase();
-          if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !login) login = r.time.slice(0,5);
-          if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) logout = r.time.slice(0,5);
+          if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !loginRaw) loginRaw = r.time.slice(0,5);
+          if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) logoutRaw = r.time.slice(0,5);
         }
-        // Also check app_log for presence
-        const hasApp = login || dayRows.length > 0;
+        const login  = loginRaw  ? toLocal(loginRaw)  : null;
+        const logout = logoutRaw ? toLocal(logoutRaw) : null;
         let status = 'Absent';
-        if (login) {
-          status = 'Present';
-          // Late if login after 09:30
-          const [h, m] = login.split(':').map(Number);
-          if (h > 9 || (h === 9 && m > 30)) status = 'Late';
-        }
+        if (login) status = 'Present';
         attendance[ds] = { login: login || '--', logout: logout || '--', status };
       }
-      result.push({ username, attendance });
+      result.push({ username, attendance, tzName, utcOffset });
     }
     res.json({ days, employees: result });
   } catch(e) { res.status(500).json({ error: e.message }); }
