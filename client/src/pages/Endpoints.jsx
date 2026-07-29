@@ -128,11 +128,47 @@ function DetailModal({ ep, onClose }) {
           )}
 
           {/* Battery */}
-          <div style={{ background:'#f8fafc', borderRadius:12, padding:'14px 16px',
-            display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <span style={{ fontSize:12, fontWeight:700, color:'#64748b' }}>🔋 Battery</span>
-            <BatteryBar pct={ep.battery_pct} charging={ep.battery_charging}/>
-          </div>
+          {ep.battery_pct !== null && ep.battery_pct !== undefined ? (
+            <div style={{ background:'#f8fafc', borderRadius:12, padding:'14px 16px', marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:10 }}>🔋 Battery</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                {/* Charge % */}
+                <div style={{ background:'#fff', borderRadius:10, padding:'10px 12px' }}>
+                  <div style={{ fontSize:10, color:'#94a3b8', fontWeight:700, textTransform:'uppercase', marginBottom:6 }}>Charge</div>
+                  <BatteryBar pct={ep.battery_pct} charging={ep.battery_charging}/>
+                  {ep.battery_status_text && (
+                    <div style={{ fontSize:10, color:'#64748b', marginTop:4 }}>{ep.battery_status_text}</div>
+                  )}
+                </div>
+                {/* Health */}
+                <div style={{ background:'#fff', borderRadius:10, padding:'10px 12px' }}>
+                  <div style={{ fontSize:10, color:'#94a3b8', fontWeight:700, textTransform:'uppercase', marginBottom:6 }}>Health</div>
+                  {ep.battery_health !== null && ep.battery_health !== undefined ? (() => {
+                    const h = ep.battery_health
+                    const hColor = h >= 80 ? '#22c55e' : h >= 60 ? '#f59e0b' : '#ef4444'
+                    const hLabel = h >= 80 ? 'Good' : h >= 60 ? 'Fair' : 'Poor'
+                    return (
+                      <div>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <div style={{ width:'100%', height:6, background:'#e2e8f0', borderRadius:99 }}>
+                            <div style={{ height:'100%', width:`${h}%`, background:hColor, borderRadius:99 }}/>
+                          </div>
+                          <span style={{ fontSize:12, fontWeight:800, color:hColor, minWidth:36 }}>{h}%</span>
+                        </div>
+                        <div style={{ fontSize:10, color:hColor, fontWeight:700, marginTop:3 }}>{hLabel}</div>
+                      </div>
+                    )
+                  })() : <span style={{ fontSize:11, color:'#bbb' }}>Not available</span>}
+                </div>
+              </div>
+              {ep.battery_model && (
+                <div style={{ marginTop:8, fontSize:11, color:'#94a3b8' }}>Model: {ep.battery_model}</div>
+              )}
+            </div>
+          ) : (
+            <div style={{ background:'#f8fafc', borderRadius:12, padding:'12px 16px',
+              marginBottom:16, fontSize:12, color:'#94a3b8' }}>🖥️ Desktop — No battery</div>
+          )}
 
           {/* Network */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
@@ -327,6 +363,15 @@ export default function Endpoints() {
                 {/* Battery */}
                 <td style={{ padding:'14px 16px' }}>
                   <BatteryBar pct={ep.battery_pct} charging={ep.battery_charging}/>
+                  {ep.battery_health !== null && ep.battery_health !== undefined && (() => {
+                    const h = ep.battery_health
+                    const hColor = h >= 80 ? '#22c55e' : h >= 60 ? '#f59e0b' : '#ef4444'
+                    const hLabel = h >= 80 ? 'Good' : h >= 60 ? 'Fair' : 'Poor'
+                    return <div style={{ fontSize:10, color:hColor, fontWeight:700, marginTop:3 }}>❤️ {h}% {hLabel}</div>
+                  })()}
+                  {ep.battery_status_text && (
+                    <div style={{ fontSize:10, color:'#94a3b8', marginTop:2 }}>{ep.battery_status_text}</div>
+                  )}
                 </td>
 
                 {/* IP / Location */}

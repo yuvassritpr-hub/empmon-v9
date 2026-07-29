@@ -107,6 +107,7 @@ async function initDB() {
       cpu_name TEXT DEFAULT '', cpu_cores INT DEFAULT 0, cpu_threads INT DEFAULT 0,
       ram_total_gb NUMERIC DEFAULT 0,
       battery_pct NUMERIC DEFAULT NULL, battery_charging BOOLEAN DEFAULT NULL,
+      battery_health NUMERIC DEFAULT NULL, battery_model TEXT DEFAULT '', battery_status_text TEXT DEFAULT '',
       last_seen TEXT DEFAULT '', last_ip TEXT DEFAULT '', last_city TEXT DEFAULT '',
       UNIQUE(username, computer)
     );
@@ -140,6 +141,9 @@ async function initDB() {
     const migrations = [
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_pct NUMERIC DEFAULT NULL",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_health NUMERIC DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_model TEXT DEFAULT ''",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_status_text TEXT DEFAULT ''",
     ];
     for (const m of migrations) {
       try { await client.query(m); } catch(e) { console.log('[DB] migration skip:', e.message); }
@@ -283,8 +287,8 @@ app.post('/api/heartbeat', async (req, res) => {
     }
     // Store/update endpoint info on every heartbeat (system_info optional)
     const si = (d.system_info && typeof d.system_info === 'object') ? d.system_info : {};
-    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, last_seen, last_ip, last_city)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, battery_health, battery_model, battery_status_text, last_seen, last_ip, last_city)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       ON CONFLICT (username, computer) DO UPDATE SET
         serial=COALESCE(NULLIF(EXCLUDED.serial,''), endpoint_info.serial),
         os_name=COALESCE(NULLIF(EXCLUDED.os_name,''), endpoint_info.os_name),
@@ -295,11 +299,16 @@ app.post('/api/heartbeat', async (req, res) => {
         ram_total_gb=CASE WHEN EXCLUDED.ram_total_gb>0 THEN EXCLUDED.ram_total_gb ELSE endpoint_info.ram_total_gb END,
         battery_pct=COALESCE(EXCLUDED.battery_pct, endpoint_info.battery_pct),
         battery_charging=COALESCE(EXCLUDED.battery_charging, endpoint_info.battery_charging),
+        battery_health=COALESCE(EXCLUDED.battery_health, endpoint_info.battery_health),
+        battery_model=COALESCE(NULLIF(EXCLUDED.battery_model,''), endpoint_info.battery_model),
+        battery_status_text=COALESCE(NULLIF(EXCLUDED.battery_status_text,''), endpoint_info.battery_status_text),
         last_seen=EXCLUDED.last_seen, last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
       [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
        si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
        si.battery_pct !== undefined ? si.battery_pct : null,
        si.battery_charging !== undefined ? si.battery_charging : null,
+       si.battery_health !== undefined ? si.battery_health : null,
+       si.battery_model||'', si.battery_status_text||'',
        receivedAt, d.ip||'', d.city||'']);
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
