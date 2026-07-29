@@ -170,6 +170,30 @@ function DetailModal({ ep, onClose }) {
               marginBottom:16, fontSize:12, color:'#94a3b8' }}>🖥️ Desktop — No battery</div>
           )}
 
+          {/* Antivirus */}
+          <div style={{ background:'#f8fafc', borderRadius:12, padding:'14px 16px', marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#64748b', marginBottom:10 }}>🛡️ Security</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              <div style={{ background:'#fff', borderRadius:10, padding:'10px 12px' }}>
+                <div style={{ fontSize:10, color:'#94a3b8', fontWeight:700, textTransform:'uppercase', marginBottom:4 }}>Antivirus</div>
+                <div style={{ fontSize:12, fontWeight:700, color:'#1e293b' }}>{ep.antivirus_name || 'Windows Defender'}</div>
+                <div style={{ marginTop:5, display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {ep.antivirus_enabled === true  && <span style={{ fontSize:10, fontWeight:700, background:'#dcfce7', color:'#166534', borderRadius:4, padding:'2px 6px' }}>✅ Active</span>}
+                  {ep.antivirus_enabled === false && <span style={{ fontSize:10, fontWeight:700, background:'#fee2e2', color:'#991b1b', borderRadius:4, padding:'2px 6px' }}>❌ Disabled</span>}
+                  {ep.antivirus_updated === true  && <span style={{ fontSize:10, fontWeight:700, background:'#dcfce7', color:'#166534', borderRadius:4, padding:'2px 6px' }}>✅ Updated</span>}
+                  {ep.antivirus_updated === false && <span style={{ fontSize:10, fontWeight:700, background:'#fef3c7', color:'#92400e', borderRadius:4, padding:'2px 6px' }}>⚠️ Outdated</span>}
+                </div>
+              </div>
+              <div style={{ background:'#fff', borderRadius:10, padding:'10px 12px' }}>
+                <div style={{ fontSize:10, color:'#94a3b8', fontWeight:700, textTransform:'uppercase', marginBottom:4 }}>Real-Time Protection</div>
+                {ep.wd_rtp === true  && <div style={{ fontSize:13, fontWeight:800, color:'#22c55e' }}>✅ ON</div>}
+                {ep.wd_rtp === false && <div style={{ fontSize:13, fontWeight:800, color:'#ef4444' }}>❌ OFF</div>}
+                {ep.wd_rtp === null  && <div style={{ fontSize:12, color:'#94a3b8' }}>—</div>}
+                {ep.wd_def_date && <div style={{ fontSize:10, color:'#94a3b8', marginTop:4 }}>Defs: {ep.wd_def_date.slice(0,10)}</div>}
+              </div>
+            </div>
+          </div>
+
           {/* Network */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
             {[
@@ -279,7 +303,7 @@ export default function Endpoints() {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
             <tr style={{ background:P }}>
-              {['Employee / Device','Serial No.','Status','OS','CPU / RAM','Battery','IP / Location','Action'].map(h => (
+              {['Employee / Device','Serial No.','Status','OS','CPU / RAM','Battery','IP / Location','Security','Action'].map(h => (
                 <th key={h} style={{ padding:'12px 16px', textAlign:'left',
                   color:'#fff', fontWeight:700, fontSize:11,
                   textTransform:'uppercase', letterSpacing:0.5, whiteSpace:'nowrap' }}>{h}</th>
@@ -382,6 +406,14 @@ export default function Endpoints() {
                   <div style={{ fontSize:11, color:'#94a3b8' }}>
                     {ep.last_city ? `📍 ${ep.last_city}` : ''}
                   </div>
+                </td>
+
+                {/* Security */}
+                <td style={{ padding:'14px 16px' }}>
+                  {ep.antivirus_name && <div style={{ fontSize:11, fontWeight:600, color:'#374151' }}>🛡️ {ep.antivirus_name}</div>}
+                  {ep.wd_rtp === true  && <div style={{ fontSize:10, color:'#22c55e', fontWeight:700, marginTop:2 }}>✅ RTP On</div>}
+                  {ep.wd_rtp === false && <div style={{ fontSize:10, color:'#ef4444', fontWeight:700, marginTop:2 }}>❌ RTP Off</div>}
+                  {ep.antivirus_updated === false && <div style={{ fontSize:10, color:'#f59e0b', fontWeight:700, marginTop:2 }}>⚠️ Outdated</div>}
                 </td>
 
                 {/* Action */}

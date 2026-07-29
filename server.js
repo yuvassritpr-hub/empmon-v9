@@ -109,6 +109,8 @@ async function initDB() {
       battery_pct NUMERIC DEFAULT NULL, battery_charging BOOLEAN DEFAULT NULL,
       battery_health NUMERIC DEFAULT NULL, battery_model TEXT DEFAULT '', battery_status_text TEXT DEFAULT '',
       timezone_name TEXT DEFAULT '', utc_offset NUMERIC DEFAULT 5.5,
+      antivirus_name TEXT DEFAULT '', antivirus_enabled BOOLEAN DEFAULT NULL,
+      antivirus_updated BOOLEAN DEFAULT NULL, wd_rtp BOOLEAN DEFAULT NULL, wd_def_date TEXT DEFAULT '',
       last_seen TEXT DEFAULT '', last_ip TEXT DEFAULT '', last_city TEXT DEFAULT '',
       UNIQUE(username, computer)
     );
@@ -147,6 +149,11 @@ async function initDB() {
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_status_text TEXT DEFAULT ''",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS timezone_name TEXT DEFAULT ''",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS utc_offset NUMERIC DEFAULT 5.5",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS antivirus_name TEXT DEFAULT ''",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS antivirus_enabled BOOLEAN DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS antivirus_updated BOOLEAN DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS wd_rtp BOOLEAN DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS wd_def_date TEXT DEFAULT ''",
     ];
     for (const m of migrations) {
       try { await client.query(m); } catch(e) { console.log('[DB] migration skip:', e.message); }
@@ -290,8 +297,10 @@ app.post('/api/heartbeat', async (req, res) => {
     }
     // Store/update endpoint info on every heartbeat (system_info optional)
     const si = (d.system_info && typeof d.system_info === 'object') ? d.system_info : {};
-    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, battery_health, battery_model, battery_status_text, timezone_name, utc_offset, last_seen, last_ip, last_city)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+    const avList = Array.isArray(si.antivirus) ? si.antivirus : [];
+    const avMain = avList[0] || {};
+    await query(`INSERT INTO endpoint_info (username, computer, serial, os_name, os_version, cpu_name, cpu_cores, cpu_threads, ram_total_gb, battery_pct, battery_charging, battery_health, battery_model, battery_status_text, timezone_name, utc_offset, antivirus_name, antivirus_enabled, antivirus_updated, wd_rtp, wd_def_date, last_seen, last_ip, last_city)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       ON CONFLICT (username, computer) DO UPDATE SET
         serial=COALESCE(NULLIF(EXCLUDED.serial,''), endpoint_info.serial),
         os_name=COALESCE(NULLIF(EXCLUDED.os_name,''), endpoint_info.os_name),
@@ -307,6 +316,11 @@ app.post('/api/heartbeat', async (req, res) => {
         battery_status_text=COALESCE(NULLIF(EXCLUDED.battery_status_text,''), endpoint_info.battery_status_text),
         timezone_name=COALESCE(NULLIF(EXCLUDED.timezone_name,''), endpoint_info.timezone_name),
         utc_offset=COALESCE(EXCLUDED.utc_offset, endpoint_info.utc_offset),
+        antivirus_name=COALESCE(NULLIF(EXCLUDED.antivirus_name,''), endpoint_info.antivirus_name),
+        antivirus_enabled=COALESCE(EXCLUDED.antivirus_enabled, endpoint_info.antivirus_enabled),
+        antivirus_updated=COALESCE(EXCLUDED.antivirus_updated, endpoint_info.antivirus_updated),
+        wd_rtp=COALESCE(EXCLUDED.wd_rtp, endpoint_info.wd_rtp),
+        wd_def_date=COALESCE(NULLIF(EXCLUDED.wd_def_date,''), endpoint_info.wd_def_date),
         last_seen=EXCLUDED.last_seen, last_ip=EXCLUDED.last_ip, last_city=EXCLUDED.last_city`,
       [d.username, d.computer||'N/A', d.serial||'', si.os_name||'', si.os_version||'',
        si.cpu_name||'', si.cpu_cores||0, si.cpu_threads||0, si.ram_total_gb||0,
@@ -315,6 +329,9 @@ app.post('/api/heartbeat', async (req, res) => {
        si.battery_health !== undefined ? si.battery_health : null,
        si.battery_model||'', si.battery_status_text||'',
        si.timezone_name||'', si.utc_offset !== undefined ? si.utc_offset : 5.5,
+       avMain.name||'', avMain.enabled !== undefined ? avMain.enabled : null,
+       avMain.updated !== undefined ? avMain.updated : null,
+       si.wd_rtp !== undefined ? si.wd_rtp : null, si.wd_def_date||'',
        receivedAt, d.ip||'', d.city||'']);
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
