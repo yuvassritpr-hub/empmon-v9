@@ -1467,8 +1467,7 @@ app.get('/api/attendance', async (req, res) => {
     const daysInMonth = new Date(yr, mo, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const ds = `${month}-${String(d).padStart(2,'0')}`;
-      const dow = new Date(ds).getDay();
-      if (dow !== 0 && dow !== 6) days.push(ds); // Mon-Fri only
+      days.push(ds); // All 7 days including weekends
     }
     const result = [];
     for (const { username } of emps) {
