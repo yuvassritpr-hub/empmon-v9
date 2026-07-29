@@ -27,6 +27,82 @@ function StatCard({ label, value, color, icon, sub }) {
   )
 }
 
+function AlertBadges({ login, shutdown, status }) {
+  const badges = []
+  if (login && login !== '--') {
+    const [h, m] = login.split(':').map(Number)
+    const mins = h * 60 + m
+    if (mins > 9 * 60 + 30) {
+      const late = mins - (9 * 60 + 30)
+      badges.push({ label: `⏰ Late ${late >= 60 ? Math.floor(late/60)+'h ' : ''}${late%60}m`, color: '#d97706', bg: '#fef3c7' })
+    }
+  }
+  if (shutdown && shutdown !== '--' && status === 'Offline') {
+    const [h, m] = shutdown.split(':').map(Number)
+    const mins = h * 60 + m
+    if (mins < 17 * 60 + 30) {
+      const early = (17 * 60 + 30) - mins
+      badges.push({ label: `🚪 Left Early ${early >= 60 ? Math.floor(early/60)+'h ' : ''}${early%60}m`, color: '#7c3aed', bg: '#ede9fe' })
+    }
+  }
+  return badges.length === 0 ? null : (
+    <div style={{ display:'flex', flexDirection:'column', gap:3, marginTop:4 }}>
+      {badges.map((b,i) => (
+        <span key={i} style={{ fontSize:9, fontWeight:700, color:b.color,
+          background:b.bg, borderRadius:4, padding:'2px 5px', display:'inline-block' }}>
+          {b.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function ProductivityScore({ workPct, commsPct, activeToday, login }) {
+  // Score: Work% (40pts) + Active hours (30pts) + Login time (30pts)
+  const workScore = Math.round((Math.min(workPct||0, 100) / 100) * 40)
+  const activeHrs = (() => {
+    if (!activeToday || activeToday === '--') return 0
+    const m = activeToday.match(/(\d+)h\s*(\d+)m/)
+    if (m) return parseInt(m[1]) + parseInt(m[2]) / 60
+    const m2 = activeToday.match(/(\d+)m/)
+    if (m2) return parseInt(m2[1]) / 60
+    return 0
+  })()
+  const activeScore = Math.round(Math.min(activeHrs / 8, 1) * 30)
+  const loginScore = (() => {
+    if (!login || login === '--') return 0
+    const [h, m] = login.split(':').map(Number)
+    const mins = h * 60 + m
+    if (mins <= 9 * 60) return 30
+    if (mins <= 9 * 60 + 30) return 25
+    if (mins <= 10 * 60) return 15
+    return 5
+  })()
+  const total = workScore + activeScore + loginScore
+  const grade = total >= 90 ? { label:'Excellent', color:'#16a34a' }
+              : total >= 75 ? { label:'Good',      color:'#2563eb' }
+              : total >= 60 ? { label:'Average',   color:'#d97706' }
+              :               { label:'Poor',      color:'#dc2626' }
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <div style={{ position:'relative', width:38, height:38 }}>
+        <svg width={38} height={38} style={{ transform:'rotate(-90deg)' }}>
+          <circle cx={19} cy={19} r={15} fill="none" stroke="#e2e8f0" strokeWidth={4}/>
+          <circle cx={19} cy={19} r={15} fill="none" stroke={grade.color} strokeWidth={4}
+            strokeDasharray={`${(total/100)*2*Math.PI*15} ${2*Math.PI*15}`}
+            strokeLinecap="round"/>
+        </svg>
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center',
+          justifyContent:'center', fontSize:10, fontWeight:800, color:grade.color }}>{total}</div>
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, color:grade.color }}>{grade.label}</div>
+        <div style={{ fontSize:9, color:'#94a3b8' }}>/100 pts</div>
+      </div>
+    </div>
+  )
+}
+
 function StatusBadge({ status }) {
   const color = STATUS_COLOR[status] || '#999'
   return (
@@ -166,7 +242,7 @@ export default function Dashboard() {
       {/* Employee Table */}
       <div style={{ background:'#fff', borderRadius: 14, boxShadow:'0 2px 16px rgba(74,21,80,0.08)', overflow:'hidden' }}>
         {/* Table Header */}
-        <div style={{ display:'grid', gridTemplateColumns:'44px 200px 120px 100px 120px 160px 140px 130px 80px',
+        <div style={{ display:'grid', gridTemplateColumns:'44px 200px 120px 110px 120px 130px 160px 140px 130px 80px',
           padding:'12px 20px', background: PURPLE, color:'#fff', fontSize: 11, fontWeight: 700,
           letterSpacing: 0.5, gap: 8 }}>
           <div></div>
@@ -174,6 +250,7 @@ export default function Dashboard() {
           <div>STATUS</div>
           <div>LOGIN</div>
           <div>ACTIVE / IDLE</div>
+          <div>SCORE</div>
           <div>PRODUCTIVITY</div>
           <div>TOP APPS</div>
           <div>LOCATION / IP</div>
@@ -192,7 +269,7 @@ export default function Dashboard() {
           <div key={`${e.username}-${e.computer}`}
             className="emp-row"
             style={{
-              display:'grid', gridTemplateColumns:'44px 200px 120px 100px 120px 160px 140px 130px 80px',
+              display:'grid', gridTemplateColumns:'44px 200px 120px 110px 120px 130px 160px 140px 130px 80px',
               padding:'14px 20px', gap: 8, alignItems:'center',
               borderBottom: idx < filtered.length-1 ? `1px solid ${PURPLE}10` : 'none',
               background: e.socialSites?.length ? '#fff5f5' : '#fff',
@@ -233,6 +310,7 @@ export default function Dashboard() {
             <div>
               <div style={{ fontSize: 12, color: GREEN, fontWeight: 600 }}>▶ {e.firstLogin||'--'}</div>
               <div style={{ fontSize: 12, color: RED }}>⏹ {e.lastShutdown||'--'}</div>
+              <AlertBadges login={e.firstLogin} shutdown={e.lastShutdown} status={e.status}/>
             </div>
 
             {/* Active / Idle */}
@@ -241,6 +319,14 @@ export default function Dashboard() {
               <div style={{ fontSize: 11, color:'#888' }}>Idle: {e.idleToday}</div>
               <div style={{ fontSize: 10, color:'#bbb', marginTop: 1 }}>🔒{e.lockCount||0} 🔓{e.unlockCount||0}</div>
             </div>
+
+            {/* Productivity Score */}
+            <ProductivityScore
+              workPct={e.workPct}
+              commsPct={e.commsPct}
+              activeToday={e.activeToday}
+              login={e.firstLogin}
+            />
 
             {/* Productivity Bar */}
             <div>
