@@ -136,6 +136,14 @@ async function initDB() {
       await client.query(idx);
     }
     await client.query('COMMIT');
+    // Migrations: add columns that may be missing from older DB versions
+    const migrations = [
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_pct NUMERIC DEFAULT NULL",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS battery_charging BOOLEAN DEFAULT NULL",
+    ];
+    for (const m of migrations) {
+      try { await client.query(m); } catch(e) { console.log('[DB] migration skip:', e.message); }
+    }
     console.log('[DB] PostgreSQL ready');
   } finally {
     client.release();
