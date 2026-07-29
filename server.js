@@ -33,7 +33,7 @@ app.use(cors());
 const COMPANY = "W-SAFE REINSURANCE";
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL;
-const IDLE_MIN = 15;
+const IDLE_MIN = 5;
 const OFFLINE_MIN = 30;
 
 // -- DB --------------------------------------------------------
