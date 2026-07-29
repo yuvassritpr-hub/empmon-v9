@@ -1449,6 +1449,68 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
+// USB Log API
+app.get('/api/usb', async (req, res) => {
+  try {
+    const rows = await query(`SELECT * FROM usb_log ORDER BY date DESC, time DESC LIMIT 500`);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Attendance Report API
+app.get('/api/attendance', async (req, res) => {
+  try {
+    const month = req.query.month || todayIST().slice(0, 7);
+    const emps = await query(
+      `SELECT DISTINCT username FROM raw_log WHERE date LIKE $1 ORDER BY username`,
+      [`${month}%`]
+    );
+    // Build list of working days in month
+    const days = [];
+    const [yr, mo] = month.split('-').map(Number);
+    const daysInMonth = new Date(yr, mo, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${month}-${String(d).padStart(2,'0')}`;
+      const dow = new Date(ds).getDay();
+      if (dow !== 0 && dow !== 6) days.push(ds); // Mon-Fri only
+    }
+    const result = [];
+    for (const { username } of emps) {
+      const rawRows = await query(
+        `SELECT date, time, event FROM raw_log WHERE username=$1 AND date LIKE $2 ORDER BY date, time`,
+        [username, `${month}%`]
+      );
+      const byDay = {};
+      for (const r of rawRows) {
+        if (!byDay[r.date]) byDay[r.date] = [];
+        byDay[r.date].push(r);
+      }
+      const attendance = {};
+      for (const ds of days) {
+        const dayRows = byDay[ds] || [];
+        let login = null, logout = null;
+        for (const r of dayRows) {
+          const ev = r.event.toUpperCase();
+          if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !login) login = r.time.slice(0,5);
+          if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) logout = r.time.slice(0,5);
+        }
+        // Also check app_log for presence
+        const hasApp = login || dayRows.length > 0;
+        let status = 'Absent';
+        if (login) {
+          status = 'Present';
+          // Late if login after 09:30
+          const [h, m] = login.split(':').map(Number);
+          if (h > 9 || (h === 9 && m > 30)) status = 'Late';
+        }
+        attendance[ds] = { login: login || '--', logout: logout || '--', status };
+      }
+      result.push({ username, attendance });
+    }
+    res.json({ days, employees: result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 initDB().then(async () => {
   await loadIpConfig();
   app.listen(PORT, () => console.log(`[Server] EmpMon V9 running on port ${PORT}`));

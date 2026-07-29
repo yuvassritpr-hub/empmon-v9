@@ -6,6 +6,8 @@ import DailyTimeline from './pages/DailyTimeline.jsx'
 import SocialAlerts from './pages/SocialAlerts.jsx'
 import IpConfig from './pages/IpConfig.jsx'
 import Endpoints from './pages/Endpoints.jsx'
+import Attendance from './pages/Attendance.jsx'
+import UsbLog from './pages/UsbLog.jsx'
 import Download from './pages/Download.jsx'
 import Login from './pages/Login.jsx'
 
@@ -13,7 +15,9 @@ const NAV = [
   { to: '/',        icon: '⊞', label: 'Dashboard'     },
   { to: '/daily',   icon: '⏱', label: 'Daily Timeline' },
   { to: '/alerts',  icon: '⚠', label: 'Social Alerts'  },
-  { to: '/endpoints', icon: '🖥️', label: 'Endpoints'      },
+  { to: '/attendance', icon: '📅', label: 'Attendance'     },
+  { to: '/usb',        icon: '🔌', label: 'USB Log'        },
+  { to: '/endpoints',  icon: '🖥️', label: 'Endpoints'      },
 ]
 
 function PrideGlobalLogo() {
@@ -90,6 +94,8 @@ export default function App() {
             <Route path="/daily" element={<DailyTimeline />} />
             <Route path="/alerts" element={<SocialAlerts />} />
             <Route path="/ipconfig" element={<IpConfig />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/usb" element={<UsbLog />} />
             <Route path="/endpoints" element={<Endpoints />} />
           </Routes>
         </main>
