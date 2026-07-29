@@ -13,7 +13,6 @@ const NAV = [
   { to: '/',        icon: '⊞', label: 'Dashboard'     },
   { to: '/daily',   icon: '⏱', label: 'Daily Timeline' },
   { to: '/alerts',  icon: '⚠', label: 'Social Alerts'  },
-  { to: '/ipconfig',  icon: '🌍', label: 'IP Locations'   },
   { to: '/endpoints', icon: '🖥️', label: 'Endpoints'      },
 ]
 
