@@ -1445,19 +1445,6 @@ app.get('/download/agent', (req, res) => {
   res.sendFile(exePath);
 });
 
-// -- SERVE REACT -----------------------------------------------
-const clientBuild = path.join(__dirname, 'client', 'dist');
-app.use(express.static(clientBuild));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuild, 'index.html'));
-});
-
-// -- START -----------------------------------------------------
-if (!DATABASE_URL) {
-  console.error('[DB] Init failed: DATABASE_URL environment variable is not set!');
-  process.exit(1);
-}
-
 // USB Log API
 app.get('/api/usb', async (req, res) => {
   try {
@@ -1519,6 +1506,19 @@ app.get('/api/attendance', async (req, res) => {
     res.json({ days, employees: result });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+// -- SERVE REACT -----------------------------------------------
+const clientBuild = path.join(__dirname, 'client', 'dist');
+app.use(express.static(clientBuild));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuild, 'index.html'));
+});
+
+// -- START -----------------------------------------------------
+if (!DATABASE_URL) {
+  console.error('[DB] Init failed: DATABASE_URL environment variable is not set!');
+  process.exit(1);
+}
 
 initDB().then(async () => {
   await loadIpConfig();
