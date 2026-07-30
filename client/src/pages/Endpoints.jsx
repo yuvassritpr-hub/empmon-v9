@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react'
 
 const P = '#4A1550'
 
+function PinIcon({ size=13, color='#e74c3c' }) {
+  return (
+    <svg width={size} height={size*1.3} viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:'inline-block',verticalAlign:'middle',marginRight:3,flexShrink:0}}>
+      <path d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 18 9 18s9-11.25 9-18c0-4.97-4.03-9-9-9z" fill={color}/>
+      <circle cx="12" cy="9" r="3.5" fill="#fff"/>
+    </svg>
+  )
+}
+
 function ago(mins) {
   if (mins < 1)    return 'Just now'
   if (mins < 60)   return `${mins}m ago`
@@ -403,8 +412,8 @@ export default function Endpoints() {
                   <div style={{ fontSize:12, fontFamily:'monospace', color:'#374151', fontWeight:600 }}>
                     {ep.last_ip || '—'}
                   </div>
-                  <div style={{ fontSize:11, color:'#94a3b8' }}>
-                    {ep.last_city ? `📍 ${ep.last_city}` : ''}
+                  <div style={{ fontSize:11, color:'#94a3b8', display:'flex', alignItems:'center' }}>
+                    {ep.last_city ? <><PinIcon color="#e74c3c" size={11}/>{ep.last_city}</> : ''}
                   </div>
                 </td>
 

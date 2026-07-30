@@ -2,6 +2,15 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
+function PinIcon({ size=13, color='#e74c3c' }) {
+  return (
+    <svg width={size} height={size*1.3} viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:'inline-block',verticalAlign:'middle',marginRight:3,flexShrink:0}}>
+      <path d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 18 9 18s9-11.25 9-18c0-4.97-4.03-9-9-9z" fill={color}/>
+      <circle cx="12" cy="9" r="3.5" fill="#fff"/>
+    </svg>
+  )
+}
+
 const APP_COLORS = ['#4493f8','#a371f7','#3fb950','#fb8500','#f85149','#d29922','#58a6ff','#bc8cff','#79c0ff','#ffb938']
 
 function TitlePanel({ label, color, pct, apps, titles }) {
@@ -550,7 +559,7 @@ export default function EmployeeDetail() {
                 ))}
                 <div style={{marginLeft:'auto',display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
                   {dayData.ip && dayData.ip!=='N/A' && <div style={{fontSize:12,color:'var(--text-dim)'}}>🌐 IP: <strong style={{color:'var(--text)'}}>{dayData.ip}</strong></div>}
-                  {dayData.location && dayData.location!=='N/A' && <div style={{fontSize:12,color:'var(--text-dim)'}}>📍 <strong style={{color:'var(--text)'}}>{dayData.location}</strong></div>}
+                  {dayData.location && dayData.location!=='N/A' && <div style={{fontSize:12,color:'var(--text-dim)',display:'flex',alignItems:'center'}}><PinIcon color="#e74c3c" size={11}/><strong style={{color:'var(--text)'}}>{dayData.location}</strong></div>}
                 </div>
               </div>
               {/* Day work + comms details */}

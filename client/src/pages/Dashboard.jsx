@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
+function PinIcon({ size=13, color='#e74c3c' }) {
+  return (
+    <svg width={size} height={size*1.3} viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:'inline-block',verticalAlign:'middle',marginRight:3,flexShrink:0}}>
+      <path d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 18 9 18s9-11.25 9-18c0-4.97-4.03-9-9-9z" fill={color}/>
+      <circle cx="12" cy="9" r="3.5" fill="#fff"/>
+    </svg>
+  )
+}
+
 const PURPLE = '#4A1550'
 const GOLD   = '#B8960C'
 const GREEN  = '#1a7f4b'
@@ -363,7 +372,7 @@ export default function Dashboard() {
 
             {/* Location + IP */}
             <div>
-              <div style={{ fontSize: 11, color:'#555' }}>📍 {e.location||'--'}</div>
+              <div style={{ fontSize: 11, color:'#555', display:'flex', alignItems:'center' }}><PinIcon color="#e74c3c" size={12}/>{e.location||'--'}</div>
               <div style={{ fontSize: 10, color:'#888', fontFamily:'monospace' }}>🌐 {e.ip||'--'}</div>
             </div>
 

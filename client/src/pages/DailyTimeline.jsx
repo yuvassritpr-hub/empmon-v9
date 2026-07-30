@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
 
+function PinIcon({ size=13, color='#e74c3c' }) {
+  return (
+    <svg width={size} height={size*1.3} viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{display:'inline-block',verticalAlign:'middle',marginRight:4,flexShrink:0}}>
+      <path d="M12 0C7.03 0 3 4.03 3 9c0 6.75 9 18 9 18s9-11.25 9-18c0-4.97-4.03-9-9-9z" fill={color}/>
+      <circle cx="12" cy="9" r="3.5" fill="#fff"/>
+    </svg>
+  )
+}
+
 const HOURS = Array.from({length:13}, (_,i) => i*2)
 
 function pctToTime(pct) {
@@ -87,7 +96,7 @@ export default function DailyTimeline() {
                   borderRadius:8, padding:'4px 10px', fontSize:12, fontWeight:600,
                   color: e.isOffice ? 'var(--green)' : 'var(--accent)',
                 }}>
-                  📍 {e.locationLabel}
+                  <PinIcon color={e.isOffice ? '#1a7f4b' : '#e74c3c'} size={12}/>{e.locationLabel}
                   {e.isOffice && <span style={{fontSize:10,opacity:0.8}}> (Office)</span>}
                 </div>
               )}
