@@ -8,6 +8,7 @@ import IpConfig from './pages/IpConfig.jsx'
 import Endpoints from './pages/Endpoints.jsx'
 import Attendance from './pages/Attendance.jsx'
 import UsbLog from './pages/UsbLog.jsx'
+import WeeklyReport from './pages/WeeklyReport.jsx'
 import Download from './pages/Download.jsx'
 import Login from './pages/Login.jsx'
 
@@ -18,6 +19,7 @@ const NAV = [
   { to: '/attendance', icon: '📅', label: 'Attendance'     },
   { to: '/usb',        icon: '🔌', label: 'USB Log'        },
   { to: '/endpoints',  icon: '🖥️', label: 'Endpoints'      },
+  { to: '/weekly',     icon: '📊', label: 'Weekly Report'  },
 ]
 
 function PrideGlobalLogo() {
@@ -97,6 +99,7 @@ export default function App() {
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/usb" element={<UsbLog />} />
             <Route path="/endpoints" element={<Endpoints />} />
+            <Route path="/weekly" element={<WeeklyReport />} />
           </Routes>
         </main>
       </div>
