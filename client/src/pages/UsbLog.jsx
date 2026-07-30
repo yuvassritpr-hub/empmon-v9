@@ -60,17 +60,25 @@ export default function UsbLog() {
                 <td style={{ padding: '10px 14px', color: '#555' }}>{(r.time||'').slice(0,8)}</td>
                 <td style={{ padding: '10px 14px', fontWeight: 700, color: PURPLE }}>{r.username}</td>
                 <td style={{ padding: '10px 14px', color: '#666', fontSize: 12 }}>{r.computer}</td>
-                <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontWeight: 600 }}>{r.drive || '—'}</td>
-                <td style={{ padding: '10px 14px' }}>{r.label || <span style={{ color: '#bbb' }}>—</span>}</td>
+                <td style={{ padding: '10px 14px' }}>
+                  {(r.drive||'').startsWith('MTP:')
+                    ? <span style={{ fontSize: 12, color: '#1a5fa8', fontWeight: 700 }}>📱 {r.label || 'Phone/Camera'}</span>
+                    : <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{r.drive || '—'}</span>}
+                </td>
+                <td style={{ padding: '10px 14px' }}>
+                  {(r.drive||'').startsWith('MTP:')
+                    ? <span style={{ fontSize: 11, color: '#888' }}>MTP Device</span>
+                    : (r.label || <span style={{ color: '#bbb' }}>—</span>)}
+                </td>
                 <td style={{ padding: '10px 14px', color: '#666' }}>{r.size_gb > 0 ? `${r.size_gb} GB` : '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
                   <span style={{
-                    background: r.action === 'connected' ? '#1a7f4b22' : '#c0392b22',
-                    color: r.action === 'connected' ? GREEN : RED,
-                    border: `1px solid ${r.action === 'connected' ? '#1a7f4b44' : '#c0392b44'}`,
+                    background: r.action === 'Connected' ? '#1a7f4b22' : '#c0392b22',
+                    color: r.action === 'Connected' ? GREEN : RED,
+                    border: `1px solid ${r.action === 'Connected' ? '#1a7f4b44' : '#c0392b44'}`,
                     borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 700
                   }}>
-                    {r.action === 'connected' ? '🔌 Connected' : '⏏ Removed'}
+                    {r.action === 'Connected' ? '🔌 Connected' : '⏏ Removed'}
                   </span>
                 </td>
               </tr>
