@@ -901,9 +901,13 @@ async function getAllEmployeesToday() {
     }
 
     const vpn = vpnRow[0];
+    const tzRow = await query(`SELECT timezone_name, utc_offset FROM endpoint_info WHERE username=$1 AND computer=$2 LIMIT 1`, [username, computer]);
+    const tzName  = tzRow[0]?.timezone_name || '';
+    const utcOffset = tzRow[0]?.utc_offset ?? null;
     rows.push({
       username, computer, serial, status, firstLogin,
       lastShutdown, lastEvent, location, ip,
+      timezone_name: tzName, utc_offset: utcOffset,
       activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
       activeSecs: activeS,
       top5, topSites, socialSites, fileSharingSites,
