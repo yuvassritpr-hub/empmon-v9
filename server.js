@@ -1434,7 +1434,7 @@ app.get('/api/daily', async (req, res) => {
     const emps = await query(`SELECT DISTINCT username, computer FROM raw_log WHERE date=$1 ORDER BY username`, [today]);
     const result = [];
     for (const { username, computer } of emps) {
-      const events = await query(`SELECT time, event FROM raw_log WHERE date=$1 AND username=$2 AND computer=$3 ORDER BY time`, [today, username, computer]);
+      const events = await query(`SELECT time, event, ip, city, region FROM raw_log WHERE date=$1 AND username=$2 AND computer=$3 ORDER BY time`, [today, username, computer]);
       const appRows = await query(`SELECT start_time, duration_sec, state, app FROM app_log WHERE date=$1 AND username=$2 AND computer=$3 ORDER BY start_time`, [today, username, computer]);
       let loginT = null, logoutT = null;
       const locks = [], unlocks = [];
@@ -1458,6 +1458,25 @@ app.get('/api/daily', async (req, res) => {
         return { left, width, cls: st === 'active' ? 'active' : 'idle', app: friendlyName(ar.app) };
       }).filter(Boolean);
 
+      // Collect today's unique IPs with city info
+      const ipSeen = new Set();
+      const todayIps = [];
+      for (const ev of events) {
+        if (ev.ip && ev.ip.includes('.') && !ipSeen.has(ev.ip)) {
+          ipSeen.add(ev.ip);
+          const cfg = resolveLocationFromConfig(ev.ip);
+          todayIps.push({
+            ip: ev.ip,
+            location: cfg ? cfg.location : (ev.city && ev.city !== 'N/A' ? `${ev.city}${ev.region ? ', '+ev.region : ''}` : ''),
+            is_office: cfg ? cfg.is_office : false,
+          });
+        }
+      }
+      const locationLabel = todayIps.length
+        ? [...new Set(todayIps.map(x => x.location).filter(Boolean))].join(' / ') || todayIps[0].ip
+        : '';
+      const isOffice = todayIps.some(x => x.is_office);
+
       result.push({
         username, computer, loginT, logoutT,
         loginPct: pct(loginT), logoutPct: pct(logoutT),
@@ -1465,6 +1484,7 @@ app.get('/api/daily', async (req, res) => {
         unlocks: unlocks.map(t => ({ t, pct: pct(t) })),
         segments, totalActive: fmtSecs(totalActive), totalIdle: fmtSecs(totalIdle),
         totalSession: fmtSecs(loginT && logoutT ? Math.round((pct(logoutT)-pct(loginT))/100*86400) : totalActive+totalIdle),
+        locationLabel, isOffice, ips: todayIps,
       });
     }
     res.json({ today, employees: result });

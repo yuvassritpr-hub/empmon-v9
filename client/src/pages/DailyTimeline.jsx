@@ -66,7 +66,7 @@ export default function DailyTimeline() {
               <div style={{fontWeight:700}}>{e.username}</div>
               <div style={{fontSize:12,color:'var(--text-dim)'}}>{e.computer}</div>
             </div>
-            <div style={{marginLeft:'auto',display:'flex',gap:20,flexWrap:'wrap'}}>
+            <div style={{marginLeft:'auto',display:'flex',gap:20,flexWrap:'wrap',alignItems:'center'}}>
               {[
                 {label:'Login',  value: e.loginT||'—',  color:'var(--green)'},
                 {label:'Shutdown',value:e.logoutT||'—', color:'var(--red)'},
@@ -79,6 +79,18 @@ export default function DailyTimeline() {
                   <div style={{fontSize:11,color:'var(--text-dim)'}}>{s.label}</div>
                 </div>
               ))}
+              {e.locationLabel && (
+                <div style={{
+                  display:'flex',alignItems:'center',gap:5,
+                  background: e.isOffice ? 'rgba(26,127,75,0.12)' : 'rgba(68,147,248,0.1)',
+                  border: `1px solid ${e.isOffice ? '#1a7f4b40' : '#4493f840'}`,
+                  borderRadius:8, padding:'4px 10px', fontSize:12, fontWeight:600,
+                  color: e.isOffice ? 'var(--green)' : 'var(--accent)',
+                }}>
+                  📍 {e.locationLabel}
+                  {e.isOffice && <span style={{fontSize:10,opacity:0.8}}> (Office)</span>}
+                </div>
+              )}
             </div>
           </div>
 
