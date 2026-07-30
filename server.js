@@ -154,6 +154,7 @@ async function initDB() {
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS antivirus_updated BOOLEAN DEFAULT NULL",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS wd_rtp BOOLEAN DEFAULT NULL",
       "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS wd_def_date TEXT DEFAULT ''",
+      "ALTER TABLE endpoint_info ADD COLUMN IF NOT EXISTS usb_drives TEXT DEFAULT '[]'",
     ];
     for (const m of migrations) {
       try { await client.query(m); } catch(e) { console.log('[DB] migration skip:', e.message); }
@@ -288,6 +289,28 @@ app.post('/api/heartbeat', async (req, res) => {
            disk.total_gb||0, disk.used_gb||0, disk.free_gb||0, disk.pct_used||0, receivedAt]);
       }
     }
+    // Detect USB plug/unplug by comparing current drives with last known drives
+    if (d.usb_drives && Array.isArray(d.usb_drives)) {
+      const lastRow = await query(`SELECT usb_drives FROM endpoint_info WHERE username=$1 AND computer=$2 LIMIT 1`, [d.username, d.computer||'N/A']);
+      const prevDrives = lastRow[0]?.usb_drives ? JSON.parse(lastRow[0].usb_drives) : [];
+      const curKeys  = new Set(d.usb_drives.map(u => u.drive));
+      const prevKeys = new Set(prevDrives.map(u => u.drive));
+      // Newly connected drives
+      for (const u of d.usb_drives) {
+        if (!prevKeys.has(u.drive)) {
+          await query(`INSERT INTO usb_log (date,time,username,computer,drive,label,size_gb,action,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [today, now, d.username, d.computer||'N/A', u.drive||'', u.label||'', u.size_gb||0, 'Connected', receivedAt]);
+        }
+      }
+      // Removed drives
+      for (const u of prevDrives) {
+        if (!curKeys.has(u.drive)) {
+          await query(`INSERT INTO usb_log (date,time,username,computer,drive,label,size_gb,action,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [today, now, d.username, d.computer||'N/A', u.drive||'', u.label||'', u.size_gb||0, 'Removed', receivedAt]);
+        }
+      }
+    }
+
     // Store WiFi SSID if provided
     if (d.wifi_ssid !== undefined) {
       await query(`INSERT INTO wifi_log (date, time, username, computer, ssid, received_at)
@@ -333,6 +356,11 @@ app.post('/api/heartbeat', async (req, res) => {
        avMain.updated !== undefined ? avMain.updated : null,
        si.wd_rtp !== undefined ? si.wd_rtp : null, si.wd_def_date||'',
        receivedAt, d.ip||'', d.city||'']);
+    // Save current USB drives list for next-heartbeat comparison
+    if (d.usb_drives && Array.isArray(d.usb_drives)) {
+      await query(`UPDATE endpoint_info SET usb_drives=$1 WHERE username=$2 AND computer=$3`,
+        [JSON.stringify(d.usb_drives), d.username, d.computer||'N/A']);
+    }
     const known = await query(`SELECT 1 FROM raw_log WHERE username=$1 AND computer=$2 AND date=$3 AND event LIKE 'LOGIN%' LIMIT 1`,
       [d.username, d.computer||'N/A', today]);
     res.json({ status: 'ok', known: known.length > 0 });
