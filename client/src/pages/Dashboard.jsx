@@ -21,17 +21,21 @@ const BLUE   = '#1a5fa8'
 const STATUS_COLOR = { Online: '#1a7f4b', Idle: '#d29922', Offline: '#c0392b' }
 
 // Map timezone name → flag + short label
-function tzInfo(tzName, utcOffsetRaw) {
-  const tz  = (tzName||'').toLowerCase()
+function countryFlag(code) {
+  if (!code || code.length !== 2) return '🌍'
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')
+}
+function tzLabel(utcOffsetRaw) {
   const off = parseFloat(utcOffsetRaw)
-  if (tz.includes('india') || tz.includes('kolkata') || off === 5.5) return { flag:'🇮🇳', label:'IST' }
-  if (tz.includes('dubai') || tz.includes('gulf')    || off === 4)   return { flag:'🇦🇪', label:'GST' }
-  if (tz.includes('nairobi') || tz.includes('east africa') || off === 3) return { flag:'🇰🇪', label:'EAT' }
-  if (tz.includes('ghana') || tz.includes('greenwich') || off === 0) return { flag:'🇬🇭', label:'GMT' }
-  if (tz.includes('cameroon') || tz.includes('west africa') || off === 1) return { flag:'🇨🇲', label:'WAT' }
-  if (tz.includes('mauritius')) return { flag:'🇲🇺', label:'MUT' }
-  if (!isNaN(off)) { const s = off >= 0 ? '+' : ''; return { flag:'🌍', label:`UTC${s}${off}` } }
-  return { flag:'🌍', label:'UTC' }
+  if (isNaN(off)) return 'UTC'
+  const h = Math.floor(Math.abs(off)), m = Math.round((Math.abs(off) - h) * 60)
+  const sign = off >= 0 ? '+' : '-'
+  return m > 0 ? `UTC${sign}${h}:${String(m).padStart(2,'0')}` : `UTC${sign}${h}`
+}
+function tzInfo(tzName, utcOffsetRaw, countryCode) {
+  const flag = countryFlag(countryCode)
+  const label = tzLabel(utcOffsetRaw)
+  return { flag, label }
 }
 const APP_COLORS = ['#4A1550','#B8960C','#1a7f4b','#1a5fa8','#c0392b','#d29922','#7B3FA0','#2980b9']
 
@@ -320,7 +324,7 @@ export default function Dashboard() {
               </div>
               <div style={{ fontSize: 11, color:'#888', marginTop: 1 }}>{e.computer}</div>
               {e.serial && e.serial !== 'N/A' && <div style={{ fontSize: 10, color:'#bbb' }}>S/N: {e.serial}</div>}
-              {(() => { const t = tzInfo(e.timezone_name, e.utc_offset); return (
+              {(() => { const t = tzInfo(e.timezone_name, e.utc_offset, e.country); return (
                 <div style={{ fontSize: 10, color:'#7B3FA0', marginTop:2 }}>{t.flag} {t.label}</div>
               )})()}
             </div>

@@ -809,7 +809,7 @@ async function getAllEmployeesToday() {
     const vpnRow = await query(`SELECT * FROM vpn_log WHERE username=$1 AND computer=$2 ORDER BY date DESC, time DESC LIMIT 1`, [username, computer]);
 
     let firstLogin = '--', lastEvent = '--', lastShutdown = '--';
-    let lastEventDt = null, serial = 'N/A', location = 'N/A', ip = 'N/A';
+    let lastEventDt = null, serial = 'N/A', location = 'N/A', ip = 'N/A', country = '';
 
     for (const r of todayRaw) {
       const ev = r.event.toUpperCase();
@@ -819,6 +819,7 @@ async function getAllEmployeesToday() {
       if (r.serial && r.serial !== 'N/A') serial = r.serial;
       if (r.city && r.city !== 'N/A') location = `${r.city}, ${r.region||''}`.replace(/,\s*$/, '');
       if (r.ip && r.ip.includes('.') && r.ip !== 'N/A') ip = r.ip;
+      if (r.country && r.country !== 'N/A') country = r.country;
       try { lastEventDt = new Date(`${today}T${r.time}`); } catch {}
     }
     // Fallback: infer login from first app event if no raw login event
@@ -906,7 +907,7 @@ async function getAllEmployeesToday() {
     const utcOffset = tzRow[0]?.utc_offset ?? null;
     rows.push({
       username, computer, serial, status, firstLogin,
-      lastShutdown, lastEvent, location, ip,
+      lastShutdown, lastEvent, location, ip, country,
       timezone_name: tzName, utc_offset: utcOffset,
       activeToday: fmtSecs(activeS), idleToday: fmtSecs(idleS),
       activeSecs: activeS,
@@ -1566,9 +1567,13 @@ app.get('/api/attendance', async (req, res) => {
         [username, `${month}%`]
       );
       // Get employee timezone offset
-      const epInfo = await query(`SELECT timezone_name, utc_offset FROM endpoint_info WHERE username=$1 LIMIT 1`, [username]);
+      const epInfo = await query(`SELECT timezone_name, utc_offset, last_ip FROM endpoint_info WHERE username=$1 LIMIT 1`, [username]);
       const tzName = epInfo[0]?.timezone_name || '';
       const utcOffset = epInfo[0]?.utc_offset !== undefined ? parseFloat(epInfo[0].utc_offset) : 5.5;
+      // Get country from latest IP
+      const lastIp = epInfo[0]?.last_ip || '';
+      const ipInfoRow = lastIp ? await query(`SELECT country FROM raw_log WHERE username=$1 AND ip=$2 AND country IS NOT NULL AND country != 'N/A' LIMIT 1`, [username, lastIp]) : [];
+      const empCountry = ipInfoRow[0]?.country || '';
       // IST offset is 5.5 — convert from IST to local time
       const offsetDiff = utcOffset - 5.5; // hours difference from IST
       const byDay = {};
@@ -1600,7 +1605,7 @@ app.get('/api/attendance', async (req, res) => {
         if (login) status = 'Present';
         attendance[ds] = { login: login || '--', logout: logout || '--', status };
       }
-      result.push({ username, attendance, tzName, utcOffset });
+      result.push({ username, attendance, tzName, utcOffset, country: empCountry });
     }
     res.json({ days, employees: result });
   } catch(e) { res.status(500).json({ error: e.message }); }

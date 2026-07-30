@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 
-function tzLabel(tzName, utcOffsetRaw) {
-  const tz  = (tzName||'').toLowerCase()
+function countryFlag(code) {
+  if (!code || code.length !== 2) return '🌍'
+  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')
+}
+function tzLabel(tzName, utcOffsetRaw, countryCode) {
+  const flag = countryFlag(countryCode)
   const off = parseFloat(utcOffsetRaw)
-  if (tz.includes('india') || tz.includes('kolkata') || off === 5.5) return '🇮🇳 IST'
-  if (tz.includes('dubai') || tz.includes('gulf')    || off === 4)   return '🇦🇪 GST'
-  if (tz.includes('nairobi') || tz.includes('east africa') || off === 3) return '🇰🇪 EAT'
-  if (tz.includes('ghana') || tz.includes('greenwich') || off === 0) return '🇬🇭 GMT'
-  if (tz.includes('cameroon') || tz.includes('west africa') || off === 1) return '🇨🇲 WAT'
-  if (tz.includes('mauritius')) return '🇲🇺 MUT'
-  if (!isNaN(off)) { const s = off >= 0 ? '+' : ''; return `🌍 UTC${s}${off}` }
-  return '🌍'
+  if (isNaN(off)) return `${flag}`
+  const h = Math.floor(Math.abs(off)), m = Math.round((Math.abs(off) - h) * 60)
+  const sign = off >= 0 ? '+' : '-'
+  const label = m > 0 ? `UTC${sign}${h}:${String(m).padStart(2,'0')}` : `UTC${sign}${h}`
+  return `${flag} ${label}`
 }
 
 const PURPLE = '#4A1550'
@@ -168,7 +169,7 @@ export default function Attendance() {
                       borderRight: '2px solid #e8e0f0', zIndex: 1 }}>
                       {emp.username}
                       <div style={{ fontSize: 10, color: '#7B3FA0', fontWeight: 500, marginTop: 2 }}>
-                        {tzLabel(emp.tzName, emp.utcOffset)}
+                        {tzLabel(emp.tzName, emp.utcOffset, emp.country)}
                       </div>
                     </td>
                     {days.map(ds => <StatusCell key={ds} info={emp.attendance[ds]} />)}
