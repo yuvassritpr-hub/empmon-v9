@@ -444,10 +444,22 @@ async function buildMonthlyReport(month) {
       .map(s=>s.domain).join(', ') || 'None';
     const daysWorked = new Set(appRows.map(r=>r.date)).size;
 
+    // OS, Storage, Battery from endpoint_info + disk_log
+    const epRow = await query(`SELECT os_name, os_version, ram_total_gb, battery_health, battery_pct, battery_charging, battery_status_text FROM endpoint_info WHERE username=$1 AND computer=$2 LIMIT 1`, [username, computer]);
+    const ep = epRow[0] || {};
+    const diskRows = await query(`SELECT drive, total_gb, used_gb, pct_used FROM disk_log WHERE username=$1 AND computer=$2 ORDER BY received_at DESC LIMIT 5`, [username, computer]);
+    const storageStr = diskRows.map(d => `${d.drive} ${d.used_gb}/${d.total_gb}GB (${d.pct_used}%)`).join(', ') || 'N/A';
+    const batteryStr = ep.battery_health != null
+      ? `${ep.battery_health}% health, ${ep.battery_pct ?? '--'}% charge${ep.battery_charging ? ' (charging)' : ''}`
+      : 'N/A';
+
     report.push({
       'Employee Name': username,
       'System Name': computer,
       'Serial Number': serial,
+      'OS': ep.os_name ? `${ep.os_name} ${ep.os_version||''}`.trim() : 'N/A',
+      'Storage': storageStr,
+      'Battery Health': batteryStr,
       'IP Address': ip,
       'Location': location,
       'Days Worked': daysWorked,
@@ -465,6 +477,13 @@ async function buildMonthlyReport(month) {
   }
   return { report, month: m };
 }
+
+app.get('/api/report/monthly', async (req, res) => {
+  try {
+    const { report, month } = await buildMonthlyReport(req.query.month);
+    res.json({ month, report });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/report/excel', async (req, res) => {
   try {
