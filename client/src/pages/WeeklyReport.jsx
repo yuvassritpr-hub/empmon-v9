@@ -37,14 +37,39 @@ export default function WeeklyReport() {
     setReport(null)
     try {
       const { start, end } = getWeekRange(offset)
-      const month = start.slice(0, 7)
-      const [attRes, dashRes] = await Promise.all([
-        fetch(`/api/attendance?month=${month}`).then(r => r.json()),
-        fetch('/api/dashboard').then(r => r.json()),
-      ])
-      const days = attRes?.days || []
-      const employees = attRes?.employees || []
-      const weekDays = days.filter(d => d >= start && d <= end)
+      const month1 = start.slice(0, 7)
+      const month2 = end.slice(0, 7)
+      const spansTwoMonths = month1 !== month2
+
+      // Fetch both months if week spans a month boundary
+      const fetches = [fetch(`/api/attendance?month=${month1}`).then(r => r.json())]
+      if (spansTwoMonths) fetches.push(fetch(`/api/attendance?month=${month2}`).then(r => r.json()))
+      const [res1, res2] = await Promise.all(fetches)
+
+      // Merge employees from both months
+      const empMap = {}
+      for (const emp of (res1?.employees || [])) {
+        empMap[emp.username] = { ...emp }
+      }
+      if (res2) {
+        for (const emp of (res2?.employees || [])) {
+          if (empMap[emp.username]) {
+            empMap[emp.username].attendance = { ...empMap[emp.username].attendance, ...emp.attendance }
+          } else {
+            empMap[emp.username] = { ...emp }
+          }
+        }
+      }
+      const employees = Object.values(empMap)
+
+      // Build full week days list
+      const weekDays = []
+      const cur = new Date(start)
+      const endDate = new Date(end)
+      while (cur <= endDate) {
+        weekDays.push(cur.toISOString().slice(0, 10))
+        cur.setDate(cur.getDate() + 1)
+      }
 
       const rows = employees.map(emp => {
         const present = weekDays.filter(d => emp.attendance[d]?.status !== 'Absent').length
