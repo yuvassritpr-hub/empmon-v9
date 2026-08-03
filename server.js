@@ -490,7 +490,8 @@ app.get('/api/report/excel', async (req, res) => {
     const { report, month } = await buildMonthlyReport(req.query.month);
     const ws = XLSX.utils.json_to_sheet(report);
     // Column widths
-    ws['!cols'] = [20,20,16,16,20,10,16,40,40,10,40,10,10,30,30,30].map(w=>({wch:w}));
+    // Columns: Name, System, Serial, OS, Storage, Battery, IP, Location, Days, ActiveTime, TopApps, WorkDetails, Work%, Comms, Comms%, NonWork%, Social, FileSharing, Email
+    ws['!cols'] = [20,20,18,28,35,30,16,22,10,14,45,45,10,40,10,10,35,35,35].map(w=>({wch:w}));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Report ${month}`);
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
