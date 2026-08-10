@@ -283,10 +283,15 @@ app.post('/api/heartbeat', async (req, res) => {
       }
     }
     if (d.disks && Array.isArray(d.disks)) {
-      for (const disk of d.disks) {
-        await query(`INSERT INTO disk_log (date,time,username,computer,drive,total_gb,used_gb,free_gb,pct_used,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [today, now, d.username, d.computer||'N/A', disk.drive||'C:',
-           disk.total_gb||0, disk.used_gb||0, disk.free_gb||0, disk.pct_used||0, receivedAt]);
+      const lastDisk = await query(`SELECT time FROM disk_log WHERE username=$1 AND computer=$2 AND date=$3 ORDER BY time DESC LIMIT 1`, [d.username, d.computer||'N/A', today]);
+      const lastDiskTime = lastDisk[0]?.time;
+      const twoHoursAgo = new Date(Date.now() - 2*60*60*1000).toTimeString().slice(0,8);
+      if (!lastDiskTime || lastDiskTime < twoHoursAgo) {
+        for (const disk of d.disks) {
+          await query(`INSERT INTO disk_log (date,time,username,computer,drive,total_gb,used_gb,free_gb,pct_used,received_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+            [today, now, d.username, d.computer||'N/A', disk.drive||'C:',
+             disk.total_gb||0, disk.used_gb||0, disk.free_gb||0, disk.pct_used||0, receivedAt]);
+        }
       }
     }
     // Detect USB plug/unplug by comparing current drives with last known drives
