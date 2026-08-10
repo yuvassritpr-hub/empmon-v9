@@ -923,7 +923,19 @@ async function getAllEmployeesToday() {
     }
     // Use mergeIntervals to avoid inflated times from duplicate agent instances
     const activeS = mergeIntervals(appRows, 'active');
-    const idleS = mergeIntervals(appRows, 'idle');
+    let idleS = mergeIntervals(appRows, 'idle');
+    // Add lock periods to idle (lock = PC locked = idle time)
+    for (const r of todayRaw) {
+      const ev = r.event.toUpperCase();
+      if (ev === 'LOCK') {
+        const unlockRow = todayRaw.find(u => u.event.toUpperCase() === 'UNLOCK' && u.time > r.time);
+        if (unlockRow) {
+          const lockSec = parseInt(r.time.slice(0,2))*3600 + parseInt(r.time.slice(3,5))*60;
+          const unlockSec = parseInt(unlockRow.time.slice(0,2))*3600 + parseInt(unlockRow.time.slice(3,5))*60;
+          idleS += Math.max(0, unlockSec - lockSec);
+        }
+      }
+    }
     for (const ar of appRows) {
       const dur = ar.duration_sec || 0;
       const st = (ar.state || 'active').toLowerCase();
