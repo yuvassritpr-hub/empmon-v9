@@ -924,7 +924,7 @@ async function getAllEmployeesToday() {
     // Use mergeIntervals to avoid inflated times from duplicate agent instances
     const activeS = mergeIntervals(appRows, 'active');
     let idleS = mergeIntervals(appRows, 'idle');
-    // Add lock periods to idle (lock = PC locked = idle time)
+    // Add lock periods to idle
     for (const r of todayRaw) {
       const ev = r.event.toUpperCase();
       if (ev === 'LOCK') {
@@ -935,6 +935,23 @@ async function getAllEmployeesToday() {
           idleS += Math.max(0, unlockSec - lockSec);
         }
       }
+    }
+    // Add gap detection — gaps >5min in app_log coverage = idle
+    const allSegs = appRows.filter(r => r.start_time).map(r => {
+      const s = r.start_time.slice(0,8);
+      const startSec = parseInt(s.slice(0,2))*3600 + parseInt(s.slice(3,5))*60 + parseInt(s.slice(6,8)||0);
+      return { startSec, endSec: startSec + (r.duration_sec||0) };
+    }).sort((a,b) => a.startSec - b.startSec);
+    const coverage = [];
+    for (const iv of allSegs) {
+      if (!coverage.length) { coverage.push({...iv}); continue; }
+      const last = coverage[coverage.length-1];
+      if (iv.startSec <= last.endSec + 30) { last.endSec = Math.max(last.endSec, iv.endSec); }
+      else { coverage.push({...iv}); }
+    }
+    for (let i = 1; i < coverage.length; i++) {
+      const gap = coverage[i].startSec - coverage[i-1].endSec;
+      if (gap >= IDLE_MIN * 60) idleS += gap;
     }
     for (const ar of appRows) {
       const dur = ar.duration_sec || 0;
