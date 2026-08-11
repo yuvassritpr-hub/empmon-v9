@@ -196,6 +196,7 @@ app.post('/api/event', async (req, res) => {
   try {
     const d = req.body;
     if (!d || !d.username || !d.event) return res.json({ status: 'error', msg: 'missing fields' });
+    if (d.computer) d.computer = d.computer.replace(/\$+$/, '');
     const now = timeIST();
     const today = todayIST();
     const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
