@@ -1679,7 +1679,7 @@ app.get('/api/attendance', async (req, res) => {
         for (const r of dayRows) {
           const ev = r.event.toUpperCase();
           if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !loginRaw) loginRaw = r.time.slice(0,5);
-          if (ev === 'LOGOUT(SHUTDOWN)' || ev === 'LOGOUT(LOGOFF)' || ev === 'SHUTDOWN') logoutRaw = r.time.slice(0,5);
+          if (ev.includes('LOGOUT') && (ev.includes('SHUTDOWN') || ev.includes('LOGOFF'))) logoutRaw = r.time.slice(0,5);
         }
         const login  = loginRaw  ? toLocal(loginRaw)  : null;
         const logout = logoutRaw ? toLocal(logoutRaw) : null;
