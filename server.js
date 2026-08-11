@@ -975,13 +975,6 @@ async function getAllEmployeesToday() {
     const topSites = browserRows.map(r => ({ domain: r.domain, secs: r.secs }));
     const socialSites = topSites.filter(s => [...SOCIAL_DOMAINS].some(sd => s.domain.includes(sd)));
     const fileSharingSites = topSites.filter(s => [...FILE_SHARING_DOMAINS].some(fd => s.domain.includes(fd)));
-    // Also check window titles
-    if (!socialSites.length) {
-      for (const ar of appRows) {
-        const tl = (ar.window_title || '').toLowerCase();
-        if (SOCIAL_KW.some(k => tl.includes(k))) { socialSites.push({ domain: 'detected-via-title' }); break; }
-      }
-    }
 
     const vpn = vpnRow[0];
     const tzRow = await query(`SELECT timezone_name, utc_offset FROM endpoint_info WHERE username=$1 AND computer=$2 LIMIT 1`, [username, computer]);
