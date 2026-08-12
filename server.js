@@ -706,6 +706,21 @@ app.get('/api/report/pdf', async (req, res) => {
 
 app.get('/api/status', (req, res) => res.json({ status: 'ok', server: COMPANY, version: '9.0' }));
 
+app.get('/api/delete-computer', async (req, res) => {
+  const { computer, secret } = req.query;
+  if (secret !== process.env.ADMIN_PASS) return res.status(403).json({ error: 'forbidden' });
+  if (!computer) return res.status(400).json({ error: 'missing computer' });
+  const tables = ['raw_log','app_log','heartbeat','session_log','endpoint_info','disk_log','usb_log','browser_log'];
+  const results = {};
+  for (const t of tables) {
+    try {
+      const r = await query(`DELETE FROM ${t} WHERE computer=$1`, [computer]);
+      results[t] = r.rowCount;
+    } catch(e) { results[t] = 0; }
+  }
+  res.json({ deleted: results, computer });
+});
+
 app.get('/api/summary', async (req, res) => {
   try {
     const data = await getAllEmployeesToday();
