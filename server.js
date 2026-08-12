@@ -254,6 +254,7 @@ app.post('/api/heartbeat', async (req, res) => {
   try {
     const d = req.body;
     if (!d || !d.username) return res.json({ status: 'error', msg: 'missing username' });
+    if (d.computer) d.computer = d.computer.replace(/\$+$/, '');
     const now = timeIST(); const today = todayIST();
     const receivedAt = nowIST().toISOString().slice(0, 19).replace('T', ' ');
     await query(`INSERT INTO raw_log (date,time,event,username,computer,serial,ip,city,region,country,lat,lon,received_at)
