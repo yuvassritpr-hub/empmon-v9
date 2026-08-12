@@ -1684,17 +1684,19 @@ app.get('/api/attendance', async (req, res) => {
       const attendance = {};
       for (const ds of days) {
         const dayRows = byDay[ds] || [];
-        let loginRaw = null, logoutRaw = null;
+        let loginRaw = null, logoutRaw = null, shutdownRaw = null;
         for (const r of dayRows) {
           const ev = r.event.toUpperCase();
           if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !loginRaw) loginRaw = r.time.slice(0,5);
           if (ev.includes('LOGOUT') && (ev.includes('SHUTDOWN') || ev.includes('LOGOFF'))) logoutRaw = r.time.slice(0,5);
+          if (ev.includes('SHUTDOWN') && !ev.includes('LOGIN')) shutdownRaw = r.time.slice(0,5);
         }
-        const login  = loginRaw  ? toLocal(loginRaw)  : null;
-        const logout = logoutRaw ? toLocal(logoutRaw) : null;
+        const login    = loginRaw    ? toLocal(loginRaw)    : null;
+        const logout   = logoutRaw   ? toLocal(logoutRaw)   : null;
+        const shutdown = shutdownRaw ? toLocal(shutdownRaw) : null;
         let status = 'Absent';
         if (login) status = 'Present';
-        attendance[ds] = { login: login || '--', logout: logout || '--', status };
+        attendance[ds] = { login: login || '--', logout: logout || '--', shutdown: shutdown || '--', status };
       }
       result.push({ username, attendance, tzName, utcOffset, country: empCountry });
     }

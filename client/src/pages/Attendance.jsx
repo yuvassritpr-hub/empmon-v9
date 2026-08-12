@@ -34,7 +34,7 @@ function monthOptions() {
 
 function StatusCell({ info }) {
   if (!info) return <td style={{ padding: '8px 6px', textAlign: 'center', background: '#f5f5f5', color: '#ccc', fontSize: 11 }}>—</td>
-  const { status, login, logout } = info
+  const { status, login, logout, shutdown } = info
   const present = status !== 'Absent'
   const bg     = present ? '#1a7f4b12' : '#c0392b08'
   const border = present ? '#1a7f4b30' : '#c0392b20'
@@ -44,8 +44,9 @@ function StatusCell({ info }) {
       {present ? (
         <>
           <div style={{ fontSize: 10, fontWeight: 700, color: GREEN }}>✓</div>
-          <div style={{ fontSize: 10, color: '#444', lineHeight: 1.5 }}>{login}</div>
-          {logout !== '--' && <div style={{ fontSize: 10, color: '#888' }}>{logout}</div>}
+          <div style={{ fontSize: 10, color: '#444', lineHeight: 1.4 }}>🔓 {login}</div>
+          {logout !== '--' && <div style={{ fontSize: 10, color: '#888' }}>🔒 {logout}</div>}
+          {shutdown && shutdown !== '--' && <div style={{ fontSize: 10, color: '#c0392b' }}>⏻ {shutdown}</div>}
         </>
       ) : (
         <div style={{ fontSize: 11, color: RED, fontWeight: 700 }}>✕</div>
