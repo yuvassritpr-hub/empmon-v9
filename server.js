@@ -527,7 +527,8 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
       for (const r of dayRaw) {
         const ev = r.event.toUpperCase();
         if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && login === '--') login = r.time;
-        if (ev.includes('LOGOUT') || ev.includes('SHUTDOWN')) shutdown = r.time;
+        if (ev.includes('LOGOFF') && shutdown === '--') shutdown = r.time;
+        else if (ev.includes('SHUTDOWN') && !ev.includes('LOGIN') && shutdown === '--') shutdown = r.time;
       }
       if (login === '--' && dayApp.length > 0) login = dayApp[0].start_time?.slice(0,8) || '--';
 
@@ -1689,7 +1690,7 @@ app.get('/api/attendance', async (req, res) => {
         for (const r of dayRows) {
           const ev = r.event.toUpperCase();
           if (ev.includes('LOGIN') && !ev.includes('LOGOUT') && !loginRaw) loginRaw = r.time.slice(0,5);
-          if (ev.includes('LOGOUT') && (ev.includes('SHUTDOWN') || ev.includes('LOGOFF'))) logoutRaw = r.time.slice(0,5);
+          if (ev.includes('LOGOFF') && !logoutRaw) logoutRaw = r.time.slice(0,5);
           if (ev.includes('SHUTDOWN') && !ev.includes('LOGIN')) shutdownRaw = r.time.slice(0,5);
         }
         const login    = loginRaw    ? toLocal(loginRaw)    : null;
