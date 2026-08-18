@@ -606,7 +606,7 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
       report.push({
         'Date': day,
         'Login Time': login,
-        'Shutdown Time': shutdown,
+        'Logout Time': shutdown,
         'IP Address': dayIpStr,
         'Location': dayLocStr,
         'Active Time': fmtSecs(activeS),
