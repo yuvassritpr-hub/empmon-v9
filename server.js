@@ -531,6 +531,12 @@ app.get('/api/report/excel/employee/:username/:computer', async (req, res) => {
         else if (ev.includes('SHUTDOWN') && !ev.includes('LOGIN') && shutdown === '--') shutdown = r.time;
       }
       if (login === '--' && dayApp.length > 0) login = dayApp[0].start_time?.slice(0,8) || '--';
+      // Fallback: if no logout event, use last app activity as estimated logout
+      if (shutdown === '--' && dayApp.length > 0) {
+        const sorted = [...dayApp].sort((a,b) => (b.end_time||b.start_time||'').localeCompare(a.end_time||a.start_time||''));
+        const lastEnd = sorted[0]?.end_time || sorted[0]?.start_time;
+        if (lastEnd) shutdown = lastEnd.slice(0,8) + ' (est)';
+      }
 
       // Filter to rows after first login to prevent overnight idle inflation
       const loginSec = login !== '--'
